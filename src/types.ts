@@ -6,6 +6,8 @@ export interface Macros {
   fat: number
 }
 
+export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
+
 // A food. The macro values are always per 100 g.
 export interface Product extends Macros {
   id: string // the barcode, or "custom-..." for products you typed in yourself
@@ -23,6 +25,7 @@ export interface Product extends Macros {
 export interface Entry extends Macros {
   id?: number // filled in automatically by the database
   date: string // "YYYY-MM-DD" in local time
+  meal: Meal
   productId: string
   name: string
   grams: number
@@ -38,4 +41,24 @@ export type ProductDraft = Partial<Macros> & {
   name?: string
   brand?: string
   imageUrl?: string
+}
+
+// One food inside a saved meal. The macros are for the grams listed (not per 100 g).
+export interface SavedMealItem extends Macros {
+  productId: string
+  name: string
+  grams: number
+}
+
+// A combination of foods you can log in one tap, e.g. "My usual breakfast".
+export interface SavedMeal {
+  id?: number
+  name: string
+  items: SavedMealItem[]
+}
+
+// One weigh-in. There is at most one per day (the date is the key).
+export interface WeightEntry {
+  date: string
+  kg: number
 }

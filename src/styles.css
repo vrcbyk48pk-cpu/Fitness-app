@@ -252,9 +252,23 @@ button:disabled {
 .button.small {
   width: auto;
   padding: 10px 20px;
+  flex-shrink: 0;
+}
+
+.button.danger {
+  margin-top: 10px;
+  background: none;
+  box-shadow: none;
+  color: var(--fat);
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
 }
 
 .scan-button {
+  margin-top: 14px;
   padding: 26px;
   font-size: 24px;
   font-weight: 700;
@@ -389,23 +403,59 @@ button:disabled {
   transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* ---------- Today: entries ---------- */
-.entry-wrap {
-  position: relative;
-  margin-bottom: 10px;
+/* ---------- Today: meals and entries ---------- */
+.meal {
+  margin-top: 26px;
+}
+
+.meal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 4px 10px 6px;
+}
+
+.meal-title {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.meal-total {
+  flex: 1;
+}
+
+.pill-button {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--track);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.copy-button {
+  display: block;
+  margin: 0 0 10px 2px;
+  color: var(--mint-text);
+}
+
+.small-add {
+  width: 36px;
+  height: 36px;
+  background: var(--mint);
+  color: #06281c;
+  font-size: 22px;
+  padding-bottom: 2px;
 }
 
 .entry {
+  width: 100%;
+  text-align: left;
   border-radius: 20px;
   padding: 14px 18px;
   display: flex;
   align-items: center;
   gap: 12px;
-  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.entry.open {
-  transform: translateX(-104px);
+  margin-bottom: 10px;
 }
 
 .entry-main {
@@ -425,24 +475,12 @@ button:disabled {
   white-space: nowrap;
 }
 
-.entry-delete {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  margin-top: -22px;
-  height: 44px;
-  width: 94px;
-  border-radius: 999px;
-  background: var(--fat);
-  color: #fff;
-  font-weight: 650;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.entry-delete.visible {
-  opacity: 1;
-  pointer-events: auto;
+/* A simple row inside a card or sheet */
+.plain-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 2px;
 }
 
 /* ---------- Add screen ---------- */
@@ -451,6 +489,10 @@ button:disabled {
   border-radius: 999px;
   padding: 4px;
   margin: 26px 0 14px;
+}
+
+.segmented.no-top {
+  margin-top: 0;
 }
 
 .segmented button {
@@ -657,6 +699,8 @@ button:disabled {
 
 .chip {
   flex: 1;
+  min-width: 0;
+  font-size: 15px;
   padding: 11px 0;
   border-radius: 999px;
   background: var(--track);
@@ -708,6 +752,302 @@ button:disabled {
 
 .setting-input .muted {
   width: 30px;
+}
+
+/* ---------- Search ---------- */
+.search-form {
+  display: flex;
+  gap: 8px;
+}
+
+.search-form .input {
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-results {
+  min-height: 46vh; /* keeps the sheet tall, so it doesn't jump when results arrive */
+}
+
+.result-row {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 2px;
+}
+
+.result-image {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  object-fit: cover;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.result-image.placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: var(--track);
+}
+
+.result-kcal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.result-kcal .muted {
+  font-size: 12px;
+}
+
+.sheet-hint {
+  margin-top: 14px;
+  padding: 0 6px;
+}
+
+/* ---------- History: bar chart ---------- */
+.period-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.period-nav .icon-button {
+  background: var(--track);
+  width: 38px;
+  height: 38px;
+  font-size: 22px;
+  padding-bottom: 3px;
+}
+
+.period-title {
+  font-size: 17px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.chart-area {
+  position: relative;
+  height: 170px;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.chart.month .chart-area,
+.chart.month .chart-labels {
+  gap: 3px;
+}
+
+/* Each column is a full-height button, so it is easy to tap even when the bar is short. */
+.chart-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.chart-col:disabled {
+  opacity: 0.45;
+}
+
+.chart-bar {
+  width: 100%;
+  border-radius: 999px;
+  background: var(--mint);
+  transform-origin: bottom;
+  animation: bar-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.chart-bar.over {
+  background: var(--fat);
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* The target: a soft dashed line across the chart with its value at the right. */
+.chart-target {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px dashed var(--muted);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chart-target span {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chart-labels {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chart-labels span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chart-labels .today {
+  color: var(--mint-text);
+  font-weight: 700;
+}
+
+.label.first {
+  margin-top: 0;
+}
+
+.chart-note {
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ---------- History: streak ---------- */
+.streak {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.streak-number {
+  min-width: 64px;
+  height: 64px;
+  padding: 0 14px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 750;
+  color: #fff;
+  background: var(--protein);
+}
+
+.streak-title {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+/* ---------- History: weight ---------- */
+.weight-form {
+  display: flex;
+  gap: 8px;
+}
+
+.weight-form .input {
+  min-width: 0;
+}
+
+.weight-stats {
+  display: flex;
+  gap: 10px;
+}
+
+.weight-stats div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--track);
+  border-radius: 18px;
+  padding: 12px 14px;
+}
+
+.weight-stats b {
+  font-size: 20px;
+}
+
+.weight-stats .muted {
+  font-size: 12px;
+}
+
+.weight-chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.weight-chart text {
+  font-size: 10px;
+  fill: var(--muted);
+}
+
+.weight-chart path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weight-day-line {
+  stroke: var(--mint);
+  stroke-width: 1.5;
+  opacity: 0.45;
+}
+
+.weight-dot {
+  fill: var(--mint);
+}
+
+.weight-average-line {
+  stroke: var(--protein);
+  stroke-width: 3.5;
+  stroke-dasharray: 1;
+  animation: line-draw 1s cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
+}
+
+@keyframes line-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+.weight-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+}
+
+.weight-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.icon-button.remove {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+  background: var(--track);
+  color: var(--muted);
 }
 
 /* ---------- Scanner ---------- */
@@ -814,7 +1154,7 @@ button:disabled {
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(var(--safe-bottom) + 12px);
-  width: min(calc(100% - 36px), 380px);
+  width: min(calc(100% - 36px), 420px);
   display: flex;
   padding: 6px;
   border-radius: 999px;

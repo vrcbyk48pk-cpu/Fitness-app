@@ -1,4 +1,4 @@
-export type Tab = 'today' | 'add' | 'settings'
+export type Tab = 'today' | 'add' | 'history' | 'settings'
 
 interface Props {
   tab: Tab
@@ -19,6 +19,11 @@ const icons: Record<Tab, React.ReactNode> = {
       <path d="M8 9v6M12 9v6M16 9v6" />
     </svg>
   ),
+  history: (
+    <svg viewBox="0 0 24 24">
+      <path d="M6 19v-6M12 19V5M18 19v-9" strokeWidth="3" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24">
       <path d="M5 7h9M18 7h1M5 12h1M10 12h9M5 17h7M16 17h3" />
@@ -29,10 +34,10 @@ const icons: Record<Tab, React.ReactNode> = {
   ),
 }
 
-const labels: Record<Tab, string> = { today: 'Today', add: 'Add', settings: 'Settings' }
+const labels: Record<Tab, string> = { today: 'Today', add: 'Add', history: 'History', settings: 'Settings' }
 
 export default function TabBar({ tab, setTab }: Props) {
-  const tabs: Tab[] = ['today', 'add', 'settings']
+  const tabs: Tab[] = ['today', 'add', 'history', 'settings']
   return (
     <nav className="tabbar glass">
       {tabs.map((t) => (

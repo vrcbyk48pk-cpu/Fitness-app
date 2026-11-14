@@ -1,15 +1,18 @@
 import { db } from './db'
-import { todayKey } from './utils'
+import type { Entry } from './types'
+import { mealForTime, todayKey } from './utils'
 
 // Collects everything in the database into one JSON file.
 export async function exportBackup(): Promise<void> {
   const backup = {
     app: 'calorie-tracker',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     products: await db.products.toArray(),
     entries: await db.entries.toArray(),
     settings: await db.settings.toArray(),
+    savedMeals: await db.savedMeals.toArray(),
+    weights: await db.weights.toArray(),
   }
   const fileName = `calories-backup-${todayKey()}.json`
   const file = new File([JSON.stringify(backup, null, 2)], fileName, { type: 'application/json' })
@@ -51,14 +54,20 @@ export async function importBackup(file: File): Promise<number> {
     throw new Error('That file is not a backup from this app.')
   }
 
+  // Backups made by version 1 of the app have no meals yet: fill them in from the time logged.
+  const entries: Entry[] = backup.entries.map((e: Entry) => ({
+    ...e,
+    meal: e.meal ?? mealForTime(new Date(e.createdAt)),
+  }))
+
   // A transaction means: either everything succeeds, or nothing changes.
-  await db.transaction('rw', db.products, db.entries, db.settings, async () => {
-    await db.products.clear()
-    await db.entries.clear()
-    await db.settings.clear()
+  await db.transaction('rw', [db.products, db.entries, db.settings, db.savedMeals, db.weights], async () => {
+    await Promise.all(db.tables.map((table) => table.clear()))
     await db.products.bulkPut(backup.products)
-    await db.entries.bulkPut(backup.entries)
+    await db.entries.bulkPut(entries)
     await db.settings.bulkPut(backup.settings ?? [])
+    await db.savedMeals.bulkPut(backup.savedMeals ?? [])
+    await db.weights.bulkPut(backup.weights ?? [])
   })
   return backup.entries.length
 }

@@ -5,8 +5,11 @@ No account, no server: everything is stored on the phone.
 
 - Scan a barcode with the camera, product data comes from [Open Food Facts](https://world.openfoodfacts.org)
 - Every scanned product is cached, so re-scanning is instant and works offline
-- Manual entry for foods without a barcode, recents and favourites for one-tap logging
-- Daily targets, day-by-day history, JSON backup export and import
+- Search Open Food Facts by name (Dutch products first), or enter a food manually
+- Meals (breakfast, lunch, dinner, snacks) with subtotals; tap an entry to edit or delete it
+- Recents, favourites, saved meals and "copy yesterday's meal" for fast logging
+- History tab: week/month calorie chart, daily averages, protein streak, weight log with 7-day average
+- Daily targets, JSON backup export and import
 
 ## Run it on your computer
 
@@ -60,22 +63,35 @@ index.html                 the single HTML page
 vite.config.ts             build setup + PWA manifest and service worker
 src/
   main.tsx                 starts React
-  App.tsx                  which tab is open, which day is selected
+  App.tsx                  which tab is open, which day and meal are selected
   styles.css               all the styling (glass look, colours, dark mode)
-  types.ts                 the shapes of the data: Product, Entry, Targets
-  db.ts                    the local database (Dexie / IndexedDB) and its helper functions
-  api.ts                   barcode lookup: local cache first, then Open Food Facts
+  types.ts                 the shapes of the data: Product, Entry, SavedMeal, WeightEntry, Targets
+  db.ts                    the local database (Dexie / IndexedDB), its versions and helper functions
+  api.ts                   barcode lookup and name search (local cache first, then Open Food Facts)
   backup.ts                export / import of the JSON backup
-  utils.ts                 small helpers: dates, macro maths, number parsing
+  utils.ts                 small helpers: dates, meals, macro maths, number parsing
   components/
-    TodayScreen.tsx        ring, macro bars, entry list, day navigation
-    AddScreen.tsx          Scan button, recents and favourites
+    TodayScreen.tsx        ring, macro bars, the four meals, day navigation
+    EntrySheet.tsx         edit or delete a logged food
+    AddScreen.tsx          meal picker, Scan / Search / manual, recents, favourites, saved meals
     Scanner.tsx            the camera view (@zxing/browser)
-    ProductSheet.tsx       product details, grams, "Add to today"
+    SearchSheet.tsx        search by name
+    ProductSheet.tsx       product details, grams, meal, "Add to today"
     ManualForm.tsx         form for a custom food
+    SavedMeals.tsx         saved meals list + "save as meal" sheet
+    HistoryScreen.tsx      week/month view, averages, protein streak
+    BarChart.tsx           the daily calories chart (plain HTML + CSS)
+    WeightCard.tsx         weight entry + line chart (plain SVG)
     SettingsScreen.tsx     daily targets and backup
-    CalorieRing.tsx  MacroBar.tsx  Sheet.tsx  TabBar.tsx   small building blocks
+    CalorieRing.tsx  MacroBar.tsx  MealPicker.tsx  Sheet.tsx  TabBar.tsx   small building blocks
 ```
+
+## Changing the database
+
+The tables are declared in `src/db.ts`. Never edit an existing `this.version(n)` block:
+phones that already have the app would not be upgraded. Instead add a new
+`this.version(n + 1)` block with only the tables that change, plus an `.upgrade()` function
+if existing rows need new values. Version 2 (meals, saved meals, weight) is the example to copy.
 
 How data flows: screens read from the database with `useLiveQuery`, which re-renders them
 automatically whenever the data changes. To change something, a component calls a function

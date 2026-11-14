@@ -1,36 +1,38 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { lookupBarcode } from '../api'
+import { lookupBarcode, type LookupResult } from '../api'
 import { addEntry, db } from '../db'
-import type { Product, ProductDraft } from '../types'
-import { fmt, formatDay, macrosFor, todayKey } from '../utils'
+import type { Meal, Product, ProductDraft } from '../types'
+import { fmt, formatDay, macrosFor, MEAL_LABELS, todayKey } from '../utils'
 import ManualForm from './ManualForm'
+import MealPicker from './MealPicker'
 import ProductSheet from './ProductSheet'
+import { SavedMealList } from './SavedMeals'
 import Scanner from './Scanner'
+import SearchSheet from './SearchSheet'
 
 interface Props {
   date: string
+  meal: Meal
+  setMeal: (meal: Meal) => void
   // Called after food was logged. goToToday = switch back to the Today tab.
   onLogged: (message: string, goToToday: boolean) => void
 }
 
-export default function AddScreen({ date, onLogged }: Props) {
+export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
   const [scanning, setScanning] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [loading, setLoading] = useState(false)
   const [product, setProduct] = useState<Product | null>(null) // shown in the product sheet
   const [manual, setManual] = useState<{ draft: ProductDraft; note?: string } | null>(null)
-  const [list, setList] = useState<'recent' | 'favourites'>('recent')
+  const [list, setList] = useState<'recent' | 'favourites' | 'meals'>('recent')
 
   // All saved products, most recently used first.
   const products = useLiveQuery(() => db.products.orderBy('lastUsed').reverse().toArray()) ?? []
   const shown = list === 'recent' ? products.slice(0, 30) : products.filter((p) => p.favourite)
 
-  async function handleBarcode(barcode: string) {
-    setScanning(false)
-    setLoading(true)
-    const result = await lookupBarcode(barcode)
-    setLoading(false)
-
+  // Decides what to show after a scan or a tapped search result.
+  function showResult(result: LookupResult, barcode?: string) {
     if (result.status === 'found') {
       setProduct(result.product)
     } else if (result.status === 'incomplete') {
@@ -51,9 +53,17 @@ export default function AddScreen({ date, onLogged }: Props) {
     }
   }
 
-  // One-tap re-log: same amount as last time, straight into the day.
+  async function handleBarcode(barcode: string) {
+    setScanning(false)
+    setLoading(true)
+    const result = await lookupBarcode(barcode)
+    setLoading(false)
+    showResult(result, barcode)
+  }
+
+  // One-tap re-log: same amount as last time, straight into the selected meal.
   async function quickAdd(p: Product) {
-    await addEntry(p, p.lastGrams, date)
+    await addEntry(p, p.lastGrams, date, meal)
     onLogged(`Added ${p.name} · ${fmt(p.lastGrams)} g`, false)
   }
 
@@ -64,12 +74,19 @@ export default function AddScreen({ date, onLogged }: Props) {
         {date !== todayKey() && <p className="muted">Logging to {formatDay(date)}</p>}
       </header>
 
+      <MealPicker meal={meal} setMeal={setMeal} />
+
       <button className="button scan-button" onClick={() => setScanning(true)} disabled={loading}>
         {loading ? 'Looking up…' : 'Scan'}
       </button>
-      <button className="button secondary" onClick={() => setManual({ draft: {} })}>
-        Enter manually
-      </button>
+      <div className="button-row">
+        <button className="button secondary" onClick={() => setSearching(true)}>
+          Search
+        </button>
+        <button className="button secondary" onClick={() => setManual({ draft: {} })}>
+          Enter manually
+        </button>
+      </div>
 
       <div className="segmented glass">
         <button className={list === 'recent' ? 'active' : ''} onClick={() => setList('recent')}>
@@ -78,33 +95,56 @@ export default function AddScreen({ date, onLogged }: Props) {
         <button className={list === 'favourites' ? 'active' : ''} onClick={() => setList('favourites')}>
           Favourites
         </button>
+        <button className={list === 'meals' ? 'active' : ''} onClick={() => setList('meals')}>
+          Meals
+        </button>
       </div>
 
-      {shown.length === 0 && (
-        <p className="empty">
-          {list === 'recent'
-            ? 'Foods you scan or create will show up here.'
-            : 'Tap the ☆ on a food to keep it here.'}
-        </p>
+      {list === 'meals' ? (
+        <SavedMealList date={date} meal={meal} onLogged={(message) => onLogged(message, false)} />
+      ) : (
+        <>
+          {shown.length === 0 && (
+            <p className="empty">
+              {list === 'recent'
+                ? 'Foods you scan, search or create will show up here.'
+                : 'Tap the ☆ on a food to keep it here.'}
+            </p>
+          )}
+          {shown.map((p) => (
+            <div className="product-row glass" key={p.id}>
+              <button className="product-row-main" onClick={() => setProduct(p)}>
+                <div className="entry-name">
+                  {p.favourite && <span className="row-star">★ </span>}
+                  {p.name}
+                </div>
+                <div className="muted">
+                  {fmt(p.lastGrams)} g · {Math.round(macrosFor(p, p.lastGrams).kcal)} kcal
+                </div>
+              </button>
+              <button
+                className="icon-button add-button"
+                onClick={() => quickAdd(p)}
+                aria-label={`Add ${p.name} to ${MEAL_LABELS[meal]}`}
+              >
+                +
+              </button>
+            </div>
+          ))}
+        </>
       )}
-      {shown.map((p) => (
-        <div className="product-row glass" key={p.id}>
-          <button className="product-row-main" onClick={() => setProduct(p)}>
-            <div className="entry-name">
-              {p.favourite && <span className="row-star">★ </span>}
-              {p.name}
-            </div>
-            <div className="muted">
-              {fmt(p.lastGrams)} g · {Math.round(macrosFor(p, p.lastGrams).kcal)} kcal
-            </div>
-          </button>
-          <button className="icon-button add-button" onClick={() => quickAdd(p)} aria-label={`Add ${p.name}`}>
-            +
-          </button>
-        </div>
-      ))}
 
       {scanning && <Scanner onDetected={handleBarcode} onClose={() => setScanning(false)} />}
+
+      {searching && (
+        <SearchSheet
+          onClose={() => setSearching(false)}
+          onResult={(result) => {
+            setSearching(false)
+            showResult(result)
+          }}
+        />
+      )}
 
       {manual && (
         <ManualForm
@@ -122,6 +162,7 @@ export default function AddScreen({ date, onLogged }: Props) {
         <ProductSheet
           product={product}
           date={date}
+          meal={meal}
           onClose={() => setProduct(null)}
           onAdded={(message) => {
             setProduct(null)

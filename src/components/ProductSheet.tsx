@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addEntry, db, setFavourite } from '../db'
-import type { Product } from '../types'
+import type { Meal, Product } from '../types'
 import { fmt, formatDay, macrosFor, parseNumber } from '../utils'
+import MealPicker from './MealPicker'
 import Sheet from './Sheet'
 
 interface Props {
   product: Product
   date: string // the day the entry is added to
+  meal: Meal // the meal that is selected when the sheet opens
   onClose: () => void
   onAdded: (message: string) => void
 }
@@ -15,7 +17,8 @@ interface Props {
 const QUICK_GRAMS = [50, 100, 150, 200]
 
 // Shows a product, lets you pick the grams, and logs it.
-export default function ProductSheet({ product, date, onClose, onAdded }: Props) {
+export default function ProductSheet({ product, date, meal: initialMeal, onClose, onAdded }: Props) {
+  const [meal, setMeal] = useState(initialMeal)
   const [gramsText, setGramsText] = useState(String(product.lastGrams))
   // Read the favourite flag live from the database so the star updates when tapped.
   const favourite = useLiveQuery(() => db.products.get(product.id), [product.id])?.favourite ?? product.favourite
@@ -26,7 +29,7 @@ export default function ProductSheet({ product, date, onClose, onAdded }: Props)
 
   async function add() {
     if (!valid) return
-    await addEntry(product, grams, date)
+    await addEntry(product, grams, date, meal)
     onAdded(`Added ${product.name}`)
   }
 
@@ -77,6 +80,9 @@ export default function ProductSheet({ product, date, onClose, onAdded }: Props)
           </button>
         ))}
       </div>
+
+      <div className="label">Meal</div>
+      <MealPicker meal={meal} setMeal={setMeal} />
 
       <div className="label">This portion</div>
       <MacroGrid kcal={eaten.kcal} protein={eaten.protein} carbs={eaten.carbs} fat={eaten.fat} />
