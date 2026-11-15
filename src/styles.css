@@ -264,7 +264,13 @@ button:disabled {
 
 .button-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+}
+
+.button-row .button {
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
 }
 
 .scan-button {
@@ -678,6 +684,12 @@ button:disabled {
   border-color: var(--mint);
 }
 
+/* A field the label scan could not read */
+.input.missing {
+  border-color: var(--carbs);
+  background: color-mix(in srgb, var(--carbs) 16%, transparent);
+}
+
 .grams-row {
   display: flex;
   align-items: center;
@@ -698,10 +710,10 @@ button:disabled {
 }
 
 .chip {
-  flex: 1;
+  flex: 1 1 auto; /* wider labels ("Breakfast") get a little more room */
   min-width: 0;
   font-size: 15px;
-  padding: 11px 0;
+  padding: 11px 6px;
   border-radius: 999px;
   background: var(--track);
   font-weight: 600;
@@ -1048,6 +1060,147 @@ button:disabled {
   font-size: 12px;
   background: var(--track);
   color: var(--muted);
+}
+
+/* ---------- Label scanning ---------- */
+.label-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  overflow-y: auto;
+  background: var(--bg);
+  padding: calc(var(--safe-top) + 16px) 18px calc(var(--safe-bottom) + 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: backdrop-in 0.25s ease;
+}
+
+.label-screen .sheet-head {
+  margin-bottom: 0;
+}
+
+.crop-frame {
+  position: relative;
+  align-self: center;
+  line-height: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  touch-action: none; /* dragging the box must not scroll the page */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.crop-frame img {
+  max-width: 100%;
+  max-height: 58vh;
+  -webkit-user-drag: none;
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px solid #fff;
+  border-radius: 14px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5); /* dims everything outside the box */
+  cursor: move;
+}
+
+/* The corner handles are large invisible touch targets with a visible dot in the middle. */
+.crop-handle {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+}
+
+.crop-handle::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--mint);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.crop-handle.top-left {
+  left: -22px;
+  top: -22px;
+}
+
+.crop-handle.top-right {
+  right: -22px;
+  top: -22px;
+}
+
+.crop-handle.bottom-left {
+  left: -22px;
+  bottom: -22px;
+}
+
+.crop-handle.bottom-right {
+  right: -22px;
+  bottom: -22px;
+}
+
+.label-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.label-actions .button.big {
+  margin-top: 0;
+}
+
+.label-status {
+  margin: auto 0;
+  border-radius: 24px;
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.label-status .bar {
+  width: 100%;
+}
+
+.label-status .bar-fill {
+  transition: width 0.3s ease;
+}
+
+.spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 5px solid var(--track);
+  border-top-color: var(--mint);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* In the review form */
+.label-photo {
+  display: block;
+  width: 100%;
+  max-height: 34vh;
+  object-fit: contain;
+  border-radius: 18px;
+  background: var(--track);
+  margin: 12px 0 14px;
+}
+
+.scan-label-button {
+  margin: 12px 0 14px;
 }
 
 /* ---------- Scanner ---------- */

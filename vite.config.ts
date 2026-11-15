@@ -30,8 +30,17 @@ export default defineConfig({
       workbox: {
         // Pre-cache the app itself so it opens offline.
         globPatterns: ['**/*.{js,css,html,png,svg}'],
+        // ...except the label reader (about 4 MB). It is only fetched on the first label scan.
+        globIgnores: ['tesseract/**'],
         // Keep product photos from Open Food Facts so they also show offline.
         runtimeCaching: [
+          // The label reader's worker and engine: keep them after the first download so label
+          // scanning works offline. (Tesseract stores the language data itself, in IndexedDB.)
+          {
+            urlPattern: /\/tesseract\/[^/]+\.js$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'tesseract' },
+          },
           {
             urlPattern: /^https:\/\/images\.openfoodfacts\.org\//,
             handler: 'CacheFirst',

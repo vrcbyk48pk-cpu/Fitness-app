@@ -7,6 +7,8 @@ import Sheet from './Sheet'
 interface Props {
   draft: ProductDraft // values we already know (may be empty)
   note?: string // why the form is shown, e.g. "Barcode not found"
+  photo?: string // a scanned label to show above the fields, so the values can be checked
+  onScanLabel?: () => void // when given, a "Scan label" button is shown
   onClose: () => void
   onSaved: (product: Product) => void
 }
@@ -15,7 +17,7 @@ interface Props {
 const text = (value?: number) => (value === undefined ? '' : String(value))
 
 // Form to create a custom product (all values per 100 g).
-export default function ManualForm({ draft, note, onClose, onSaved }: Props) {
+export default function ManualForm({ draft, note, photo, onScanLabel, onClose, onSaved }: Props) {
   const [name, setName] = useState(draft.name ?? '')
   const [kcal, setKcal] = useState(text(draft.kcal))
   const [protein, setProtein] = useState(text(draft.protein))
@@ -58,19 +60,26 @@ export default function ManualForm({ draft, note, onClose, onSaved }: Props) {
   }
 
   return (
-    <Sheet title="Custom food" onClose={onClose}>
+    <Sheet title={photo ? 'Check the values' : 'Custom food'} onClose={onClose}>
       {note && <p className="note">{note}</p>}
+      {onScanLabel && (
+        <button className="button scan-label-button" type="button" onClick={onScanLabel}>
+          Scan label
+        </button>
+      )}
+      {photo && <img className="label-photo" src={photo} alt="The label that was read" />}
       <form onSubmit={save}>
         <label className="field">
           <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mum's lasagne" />
+          <input className={photo && !name.trim() ? 'input missing' : 'input'} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mum's lasagne" />
         </label>
         <div className="label">Per 100 g</div>
         <div className="field-grid">
-          <NumberField label="Calories (kcal)" value={kcal} onChange={setKcal} />
-          <NumberField label="Protein (g)" value={protein} onChange={setProtein} />
-          <NumberField label="Carbs (g)" value={carbs} onChange={setCarbs} />
-          <NumberField label="Fat (g)" value={fat} onChange={setFat} />
+          {/* After a label scan, fields that could not be read are highlighted. */}
+          <NumberField label="Calories (kcal)" value={kcal} onChange={setKcal} highlight={!!photo && values.kcal === null} />
+          <NumberField label="Protein (g)" value={protein} onChange={setProtein} highlight={!!photo && values.protein === null} />
+          <NumberField label="Carbs (g)" value={carbs} onChange={setCarbs} highlight={!!photo && values.carbs === null} />
+          <NumberField label="Fat (g)" value={fat} onChange={setFat} highlight={!!photo && values.fat === null} />
         </div>
         <button className="button big" type="submit" disabled={!valid}>
           Save and continue
@@ -80,16 +89,16 @@ export default function ManualForm({ draft, note, onClose, onSaved }: Props) {
   )
 }
 
-function NumberField(props: { label: string; value: string; onChange: (value: string) => void }) {
+function NumberField(props: { label: string; value: string; onChange: (value: string) => void; highlight?: boolean }) {
   return (
     <label className="field">
       <span>{props.label}</span>
       <input
-        className="input"
+        className={props.highlight ? 'input missing' : 'input'}
         inputMode="decimal"
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
-        placeholder="0"
+        placeholder={props.highlight ? 'fill in' : '0'}
       />
     </label>
   )

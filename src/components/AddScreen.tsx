@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { lookupBarcode, type LookupResult } from '../api'
 import { addEntry, db } from '../db'
+import { addsUp } from '../labelParser'
 import type { Meal, Product, ProductDraft } from '../types'
 import { fmt, formatDay, macrosFor, MEAL_LABELS, todayKey } from '../utils'
 import ManualForm from './ManualForm'
@@ -10,6 +11,17 @@ import ProductSheet from './ProductSheet'
 import { SavedMealList } from './SavedMeals'
 import Scanner from './Scanner'
 import SearchSheet from './SearchSheet'
+
+// The label scanner (and with it the OCR code) is only downloaded when it is first used.
+const LabelScanner = lazy(() => import('./LabelScanner'))
+
+// What the manual form needs to know when it opens.
+interface ManualState {
+  draft: ProductDraft
+  note?: string
+  photo?: string // set after a label scan
+  canScanLabel?: boolean // show the "Scan label" button
+}
 
 interface Props {
   date: string
@@ -24,7 +36,12 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
   const [searching, setSearching] = useState(false)
   const [loading, setLoading] = useState(false)
   const [product, setProduct] = useState<Product | null>(null) // shown in the product sheet
-  const [manual, setManual] = useState<{ draft: ProductDraft; note?: string } | null>(null)
+  const [manual, setManual] = useState<ManualState | null>(null)
+  // Label scanning: the photo that was taken, and what we already know about the product
+  // (for example its barcode, when this follows a barcode that was not found).
+  const [labelPhoto, setLabelPhoto] = useState<File | null>(null)
+  const [labelDraft, setLabelDraft] = useState<ProductDraft>({})
+  const cameraInput = useRef<HTMLInputElement>(null)
   const [list, setList] = useState<'recent' | 'favourites' | 'meals'>('recent')
 
   // All saved products, most recently used first.
@@ -38,17 +55,20 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
     } else if (result.status === 'incomplete') {
       setManual({
         draft: result.draft,
-        note: `Open Food Facts has no ${result.missing.join(', ')} for this product. Fill in the gaps from the label.`,
+        note: `Open Food Facts has no ${result.missing.join(', ')} for this product. Scan the label, or fill in the gaps yourself.`,
+        canScanLabel: true,
       })
     } else if (result.status === 'not-found') {
       setManual({
         draft: { id: barcode },
-        note: `Barcode ${barcode} was not found. Enter the values from the label and it will be recognised next time.`,
+        note: `Barcode ${barcode} was not found. Scan the label or type the values, and it will be recognised next time.`,
+        canScanLabel: true,
       })
     } else {
       setManual({
         draft: { id: barcode },
-        note: 'Could not reach Open Food Facts (are you offline?). You can enter the values from the label instead.',
+        note: 'Could not reach Open Food Facts (are you offline?). Scan the label or type the values instead.',
+        canScanLabel: true,
       })
     }
   }
@@ -59,6 +79,13 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
     const result = await lookupBarcode(barcode)
     setLoading(false)
     showResult(result, barcode)
+  }
+
+  // Opens the iPhone camera to photograph a label. This must run directly inside a tap
+  // handler: browsers only allow opening the camera in response to a tap.
+  function scanLabel(draft: ProductDraft) {
+    setLabelDraft(draft)
+    cameraInput.current?.click()
   }
 
   // One-tap re-log: same amount as last time, straight into the selected meal.
@@ -83,10 +110,29 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
         <button className="button secondary" onClick={() => setSearching(true)}>
           Search
         </button>
+        <button className="button secondary" onClick={() => scanLabel({})}>
+          Scan label
+        </button>
         <button className="button secondary" onClick={() => setManual({ draft: {} })}>
-          Enter manually
+          Manual
         </button>
       </div>
+
+      {/* Hidden: tapping "Scan label" clicks this, which opens the camera. */}
+      <input
+        ref={cameraInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = '' // allows taking another photo afterwards
+          if (!file) return
+          setManual(null)
+          setLabelPhoto(file)
+        }}
+      />
 
       <div className="segmented glass">
         <button className={list === 'recent' ? 'active' : ''} onClick={() => setList('recent')}>
@@ -146,10 +192,39 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
         />
       )}
 
+      {labelPhoto && (
+        <Suspense fallback={null}>
+          <LabelScanner
+            photo={labelPhoto}
+            onRetake={() => scanLabel(labelDraft)}
+            onClose={() => setLabelPhoto(null)}
+            onManual={() => {
+              setLabelPhoto(null)
+              setManual({ draft: labelDraft })
+            }}
+            onRead={(values, preview) => {
+              setLabelPhoto(null)
+              // Open the form with what was read. Nothing is saved until "Save" is tapped.
+              setManual({
+                draft: { ...labelDraft, ...values },
+                photo: preview,
+                note: addsUp(values)
+                  ? 'Check these against the photo. Highlighted fields could not be read.'
+                  : 'Check these carefully against the photo: the calories do not match the other values, so one of them was probably misread.',
+              })
+            }}
+          />
+        </Suspense>
+      )}
+
       {manual && (
         <ManualForm
+          // A new key makes React start the form fresh when its contents change.
+          key={manual.photo ?? 'typed'}
           draft={manual.draft}
           note={manual.note}
+          photo={manual.photo}
+          onScanLabel={manual.canScanLabel ? () => scanLabel(manual.draft) : undefined}
           onClose={() => setManual(null)}
           onSaved={(saved) => {
             setManual(null)
