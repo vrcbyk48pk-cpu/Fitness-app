@@ -1,11 +1,14 @@
 import Dexie, { type Table } from 'dexie'
-import type { Entry, Meal, Product, SavedMeal, Targets, WeightEntry } from './types'
+import type { Entry, Meal, Product, Profile, SavedMeal, Targets, WeightEntry } from './types'
 import { macrosFor, mealForTime, shiftDay, todayKey } from './utils'
 
-// One row in the settings table. Right now the only key is "targets".
+// One row in the settings table. The keys in use:
+//   "targets"           -> Targets (daily goals)
+//   "profile"           -> Profile (answers from the onboarding)
+//   "onboardingSkipped" -> true
 interface Setting {
   key: string
-  value: Targets
+  value: unknown
 }
 
 // The local database (IndexedDB, via Dexie). Everything stays on the phone.
@@ -55,11 +58,32 @@ export const DEFAULT_TARGETS: Targets = { kcal: 2200, protein: 130, carbs: 250, 
 
 export async function getTargets(): Promise<Targets> {
   const row = await db.settings.get('targets')
-  return row?.value ?? DEFAULT_TARGETS
+  return (row?.value as Targets | undefined) ?? DEFAULT_TARGETS
 }
 
 export async function saveTargets(targets: Targets): Promise<void> {
   await db.settings.put({ key: 'targets', value: targets })
+}
+
+// ---------- Profile and onboarding ----------
+
+export async function getProfile(): Promise<Profile | null> {
+  const row = await db.settings.get('profile')
+  return (row?.value as Profile | undefined) ?? null
+}
+
+export async function saveProfile(profile: Profile): Promise<void> {
+  await db.settings.put({ key: 'profile', value: profile })
+}
+
+export async function skipOnboarding(): Promise<void> {
+  await db.settings.put({ key: 'onboardingSkipped', value: true })
+}
+
+// The onboarding is shown until it was either completed or skipped.
+export async function needsOnboarding(): Promise<boolean> {
+  const rows = await db.settings.bulkGet(['profile', 'onboardingSkipped'])
+  return rows.every((row) => row === undefined)
 }
 
 // ---------- Products ----------

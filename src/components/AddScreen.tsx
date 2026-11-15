@@ -5,12 +5,15 @@ import { addEntry, db } from '../db'
 import { addsUp } from '../labelParser'
 import type { Meal, Product, ProductDraft } from '../types'
 import { fmt, formatDay, macrosFor, MEAL_LABELS, todayKey } from '../utils'
+import Button from './Button'
+import Icon from './Icon'
 import ManualForm from './ManualForm'
 import MealPicker from './MealPicker'
 import ProductSheet from './ProductSheet'
 import { SavedMealList } from './SavedMeals'
 import Scanner from './Scanner'
 import SearchSheet from './SearchSheet'
+import Segmented from './Segmented'
 
 // The label scanner (and with it the OCR code) is only downloaded when it is first used.
 const LabelScanner = lazy(() => import('./LabelScanner'))
@@ -22,6 +25,14 @@ interface ManualState {
   photo?: string // set after a label scan
   canScanLabel?: boolean // show the "Scan label" button
 }
+
+type List = 'recent' | 'favourites' | 'meals'
+
+const LISTS: { value: List; label: string }[] = [
+  { value: 'recent', label: 'Recent' },
+  { value: 'favourites', label: 'Favourites' },
+  { value: 'meals', label: 'Meals' },
+]
 
 interface Props {
   date: string
@@ -42,7 +53,7 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
   const [labelPhoto, setLabelPhoto] = useState<File | null>(null)
   const [labelDraft, setLabelDraft] = useState<ProductDraft>({})
   const cameraInput = useRef<HTMLInputElement>(null)
-  const [list, setList] = useState<'recent' | 'favourites' | 'meals'>('recent')
+  const [list, setList] = useState<List>('recent')
 
   // All saved products, most recently used first.
   const products = useLiveQuery(() => db.products.orderBy('lastUsed').reverse().toArray()) ?? []
@@ -97,25 +108,28 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
   return (
     <>
       <header className="page-head">
-        <h1>Add food</h1>
-        {date !== todayKey() && <p className="muted">Logging to {formatDay(date)}</p>}
+        <div>
+          <h1 className="page-title">Add food</h1>
+          {date !== todayKey() && <p className="muted">Logging to {formatDay(date)}</p>}
+        </div>
       </header>
 
       <MealPicker meal={meal} setMeal={setMeal} />
 
-      <button className="button scan-button" onClick={() => setScanning(true)} disabled={loading}>
-        {loading ? 'Looking up…' : 'Scan'}
-      </button>
-      <div className="button-row">
-        <button className="button secondary" onClick={() => setSearching(true)}>
+      {/* The four ways to add a food, as equal buttons. */}
+      <div className="actions">
+        <Button variant="glass" layout="stacked" icon="barcode" onClick={() => setScanning(true)} disabled={loading}>
+          {loading ? 'Looking up…' : 'Scan'}
+        </Button>
+        <Button variant="glass" layout="stacked" icon="search" onClick={() => setSearching(true)}>
           Search
-        </button>
-        <button className="button secondary" onClick={() => scanLabel({})}>
+        </Button>
+        <Button variant="glass" layout="stacked" icon="camera" onClick={() => scanLabel({})}>
           Scan label
-        </button>
-        <button className="button secondary" onClick={() => setManual({ draft: {} })}>
+        </Button>
+        <Button variant="glass" layout="stacked" icon="pencil" onClick={() => setManual({ draft: {} })}>
           Manual
-        </button>
+        </Button>
       </div>
 
       {/* Hidden: tapping "Scan label" clicks this, which opens the camera. */}
@@ -134,16 +148,8 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
         }}
       />
 
-      <div className="segmented glass">
-        <button className={list === 'recent' ? 'active' : ''} onClick={() => setList('recent')}>
-          Recent
-        </button>
-        <button className={list === 'favourites' ? 'active' : ''} onClick={() => setList('favourites')}>
-          Favourites
-        </button>
-        <button className={list === 'meals' ? 'active' : ''} onClick={() => setList('meals')}>
-          Meals
-        </button>
+      <div className="list-picker">
+        <Segmented options={LISTS} value={list} onChange={setList} />
       </div>
 
       {list === 'meals' ? (
@@ -154,27 +160,32 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
             <p className="empty">
               {list === 'recent'
                 ? 'Foods you scan, search or create will show up here.'
-                : 'Tap the ☆ on a food to keep it here.'}
+                : 'Tap the star on a food to keep it here.'}
             </p>
           )}
           {shown.map((p) => (
-            <div className="product-row glass" key={p.id}>
-              <button className="product-row-main" onClick={() => setProduct(p)}>
-                <div className="entry-name">
-                  {p.favourite && <span className="row-star">★ </span>}
+            <div className="row glass" key={p.id}>
+              <button className="row-main" onClick={() => setProduct(p)}>
+                <div className="row-title">
+                  {p.favourite && (
+                    <span className="row-star">
+                      <Icon name="starFilled" size={16} />
+                    </span>
+                  )}
                   {p.name}
                 </div>
                 <div className="muted">
                   {fmt(p.lastGrams)} g · {Math.round(macrosFor(p, p.lastGrams).kcal)} kcal
                 </div>
               </button>
-              <button
-                className="icon-button add-button"
+              <Button
+                variant="primary"
+                size="small"
+                layout="round"
+                icon="plus"
                 onClick={() => quickAdd(p)}
                 aria-label={`Add ${p.name} to ${MEAL_LABELS[meal]}`}
-              >
-                +
-              </button>
+              />
             </div>
           ))}
         </>

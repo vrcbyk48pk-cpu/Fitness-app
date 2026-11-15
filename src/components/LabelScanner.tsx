@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { type Crop, loadImage, prepareForOcr } from '../image'
 import { type LabelValues, parseLabel } from '../labelParser'
 import { readText } from '../ocr'
+import Button from './Button'
 import CropBox from './CropBox'
 
 interface Props {
@@ -64,35 +65,33 @@ export default function LabelScanner({ photo, onRetake, onManual, onClose, onRea
   }
 
   return (
-    <div className="label-screen">
-      <header className="sheet-head">
-        <h2>Scan label</h2>
-        <button className="icon-button" onClick={onClose} aria-label="Close">
-          ✕
-        </button>
+    <div className="overlay">
+      <header className="page-head">
+        <h1 className="page-title">Scan label</h1>
+        <Button variant="glass" layout="round" icon="close" onClick={onClose} aria-label="Close" />
       </header>
 
       {stage.name === 'crop' && photoUrl && (
         <>
           <p className="muted">Drag the corners so the box holds only the nutrition table.</p>
           <CropBox photoUrl={photoUrl} crop={crop} setCrop={setCrop} />
-          <div className="label-actions">
-            <button className="button big" onClick={read}>
+          <div className="stack">
+            <Button variant="primary" block onClick={read}>
               Read label
-            </button>
-            <button className="button secondary" onClick={onRetake}>
+            </Button>
+            <Button variant="glass" block icon="camera" onClick={onRetake}>
               Retake photo
-            </button>
+            </Button>
           </div>
         </>
       )}
 
       {stage.name === 'reading' && (
-        <div className="label-status glass" role="status">
+        <div className="card glass status-card" role="status">
           <div className="spinner" />
           <h3>{stage.loading ? 'Getting the text reader ready…' : 'Reading the label…'}</h3>
           <div className="bar">
-            <div className="bar-fill" style={{ width: `${stage.progress * 100}%`, background: 'var(--mint)' }} />
+            <div className="bar-fill" style={{ width: `${stage.progress * 100}%` }} />
           </div>
           <p className="muted">
             {stage.loading
@@ -103,15 +102,15 @@ export default function LabelScanner({ photo, onRetake, onManual, onClose, onRea
       )}
 
       {stage.name === 'failed' && (
-        <div className="label-status glass">
+        <div className="card glass status-card">
           <h3>Nothing readable</h3>
           <p className="muted">{stage.message}</p>
-          <button className="button" onClick={onRetake}>
+          <Button variant="primary" block icon="camera" onClick={onRetake}>
             Try again
-          </button>
-          <button className="button secondary" onClick={onManual}>
+          </Button>
+          <Button block icon="pencil" onClick={onManual}>
             Enter manually
-          </button>
+          </Button>
         </div>
       )}
     </div>

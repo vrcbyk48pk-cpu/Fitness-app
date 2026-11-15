@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { saveProduct } from '../db'
 import type { Product, ProductDraft } from '../types'
 import { parseNumber } from '../utils'
+import Button from './Button'
 import Sheet from './Sheet'
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 const text = (value?: number) => (value === undefined ? '' : String(value))
 
 // Form to create a custom product (all values per 100 g).
+// It is also the review screen after a label scan.
 export default function ManualForm({ draft, note, photo, onScanLabel, onClose, onSaved }: Props) {
   const [name, setName] = useState(draft.name ?? '')
   const [kcal, setKcal] = useState(text(draft.kcal))
@@ -59,31 +61,43 @@ export default function ManualForm({ draft, note, photo, onScanLabel, onClose, o
     onSaved(product)
   }
 
+  // After a label scan, fields that could not be read are highlighted.
+  const highlight = (missing: boolean) => !!photo && missing
+
   return (
     <Sheet title={photo ? 'Check the values' : 'Custom food'} onClose={onClose}>
-      {note && <p className="note">{note}</p>}
-      {onScanLabel && (
-        <button className="button scan-label-button" type="button" onClick={onScanLabel}>
-          Scan label
-        </button>
-      )}
-      {photo && <img className="label-photo" src={photo} alt="The label that was read" />}
-      <form onSubmit={save}>
+      <form className="stack" onSubmit={save}>
+        {note && <p className="note">{note}</p>}
+        {onScanLabel && (
+          <Button variant="primary" block icon="camera" onClick={onScanLabel}>
+            Scan label
+          </Button>
+        )}
+        {photo && <img className="label-photo" src={photo} alt="The label that was read" />}
+
         <label className="field">
           <span>Name</span>
-          <input className={photo && !name.trim() ? 'input missing' : 'input'} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mum's lasagne" />
+          <input
+            className={highlight(!name.trim()) ? 'input missing' : 'input'}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Mum's lasagne"
+          />
         </label>
-        <div className="label">Per 100 g</div>
-        <div className="field-grid">
-          {/* After a label scan, fields that could not be read are highlighted. */}
-          <NumberField label="Calories (kcal)" value={kcal} onChange={setKcal} highlight={!!photo && values.kcal === null} />
-          <NumberField label="Protein (g)" value={protein} onChange={setProtein} highlight={!!photo && values.protein === null} />
-          <NumberField label="Carbs (g)" value={carbs} onChange={setCarbs} highlight={!!photo && values.carbs === null} />
-          <NumberField label="Fat (g)" value={fat} onChange={setFat} highlight={!!photo && values.fat === null} />
+
+        <div>
+          <div className="label">Per 100 g</div>
+          <div className="field-grid">
+            <NumberField label="Calories (kcal)" value={kcal} onChange={setKcal} highlight={highlight(values.kcal === null)} />
+            <NumberField label="Protein (g)" value={protein} onChange={setProtein} highlight={highlight(values.protein === null)} />
+            <NumberField label="Carbs (g)" value={carbs} onChange={setCarbs} highlight={highlight(values.carbs === null)} />
+            <NumberField label="Fat (g)" value={fat} onChange={setFat} highlight={highlight(values.fat === null)} />
+          </div>
         </div>
-        <button className="button big" type="submit" disabled={!valid}>
+
+        <Button variant={onScanLabel ? 'quiet' : 'primary'} block type="submit" disabled={!valid}>
           Save and continue
-        </button>
+        </Button>
       </form>
     </Sheet>
   )

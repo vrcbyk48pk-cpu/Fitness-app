@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import TabBar, { type Tab } from './components/TabBar'
 import TodayScreen from './components/TodayScreen'
 import AddScreen from './components/AddScreen'
 import HistoryScreen from './components/HistoryScreen'
 import SettingsScreen from './components/SettingsScreen'
+import Onboarding from './components/Onboarding'
+import { getProfile, needsOnboarding } from './db'
 import type { Meal } from './types'
 import { mealForTime, todayKey } from './utils'
 
@@ -15,6 +18,12 @@ export default function App() {
   const [meal, setMeal] = useState<Meal>(mealForTime(new Date()))
   // A short message that pops up at the top, e.g. "Added Oats".
   const [toast, setToast] = useState('')
+
+  // Onboarding: shown on first launch, and again when "Edit profile" is tapped in Settings.
+  // Both values are undefined for a moment while the database is being read.
+  const firstRun = useLiveQuery(needsOnboarding)
+  const profile = useLiveQuery(getProfile)
+  const [editingProfile, setEditingProfile] = useState(false)
 
   function showToast(message: string) {
     setToast(message)
@@ -42,52 +51,63 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
+  const loading = firstRun === undefined || profile === undefined
+  const showOnboarding = firstRun || editingProfile
+
   return (
     <>
       {/* Soft colour blobs behind everything, so the glass has something to blur. */}
       <div className="blobs" aria-hidden="true">
-        <div className="blob blob-mint" />
-        <div className="blob blob-blue" />
-        <div className="blob blob-mint-2" />
+        <div className="blob blob-1" />
+        <div className="blob blob-2" />
+        <div className="blob blob-3" />
       </div>
 
-      <main className="screen" key={tab}>
-        {tab === 'today' && (
-          <TodayScreen
-            date={date}
-            setDate={setDate}
-            onToast={showToast}
-            onAddTo={(m) => {
-              setMeal(m)
-              setTab('add')
-            }}
-          />
-        )}
-        {tab === 'add' && (
-          <AddScreen
-            date={date}
-            meal={meal}
-            setMeal={setMeal}
-            onLogged={(message, goToToday) => {
-              showToast(message)
-              if (goToToday) setTab('today')
-            }}
-          />
-        )}
-        {tab === 'history' && (
-          <HistoryScreen
-            onOpenDay={(day) => {
-              setDate(day)
-              setTab('today')
-            }}
-          />
-        )}
-        {tab === 'settings' && <SettingsScreen />}
-      </main>
+      {!loading && showOnboarding && (
+        <Onboarding profile={profile} firstRun={firstRun} onDone={() => setEditingProfile(false)} />
+      )}
+
+      {!loading && !showOnboarding && (
+        <>
+          <main className="screen" key={tab}>
+            {tab === 'today' && (
+              <TodayScreen
+                date={date}
+                setDate={setDate}
+                onToast={showToast}
+                onAddTo={(m) => {
+                  setMeal(m)
+                  setTab('add')
+                }}
+              />
+            )}
+            {tab === 'add' && (
+              <AddScreen
+                date={date}
+                meal={meal}
+                setMeal={setMeal}
+                onLogged={(message, goToToday) => {
+                  showToast(message)
+                  if (goToToday) setTab('today')
+                }}
+              />
+            )}
+            {tab === 'history' && (
+              <HistoryScreen
+                onOpenDay={(day) => {
+                  setDate(day)
+                  setTab('today')
+                }}
+              />
+            )}
+            {tab === 'settings' && <SettingsScreen onEditProfile={() => setEditingProfile(true)} />}
+          </main>
+
+          <TabBar tab={tab} setTab={openTab} />
+        </>
+      )}
 
       {toast && <div className="toast glass">{toast}</div>}
-
-      <TabBar tab={tab} setTab={openTab} />
     </>
   )
 }

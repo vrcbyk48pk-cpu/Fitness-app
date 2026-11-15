@@ -1,18 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { exportBackup, importBackup } from '../backup'
-import { getTargets, saveTargets } from '../db'
+import { ACTIVITY_OPTIONS, DISCLAIMER, GOAL_OPTIONS } from '../calculator'
+import { getProfile, getTargets, saveTargets } from '../db'
 import type { Targets } from '../types'
 import { parseNumber } from '../utils'
+import Button from './Button'
 
 // The four target fields, in display order.
 const FIELDS: { key: keyof Targets; label: string; unit: string; color: string }[] = [
-  { key: 'kcal', label: 'Calories', unit: 'kcal', color: 'var(--mint)' },
+  { key: 'kcal', label: 'Calories', unit: 'kcal', color: 'var(--accent)' },
   { key: 'protein', label: 'Protein', unit: 'g', color: 'var(--protein)' },
   { key: 'carbs', label: 'Carbs', unit: 'g', color: 'var(--carbs)' },
   { key: 'fat', label: 'Fat', unit: 'g', color: 'var(--fat)' },
 ]
 
-export default function SettingsScreen() {
+interface Props {
+  onEditProfile: () => void // opens the onboarding questions again
+}
+
+export default function SettingsScreen({ onEditProfile }: Props) {
+  const profile = useLiveQuery(getProfile)
   // Kept as text while typing; saved to the database whenever all four are valid numbers.
   const [texts, setTexts] = useState<Record<keyof Targets, string> | null>(null)
   const [message, setMessage] = useState('')
@@ -63,10 +71,35 @@ export default function SettingsScreen() {
   return (
     <>
       <header className="page-head">
-        <h1>Settings</h1>
+        <h1 className="page-title">Settings</h1>
       </header>
 
-      <h3 className="section-title">Daily targets</h3>
+      <h2 className="section-title">My profile</h2>
+      <section className="card glass">
+        {profile ? (
+          <div className="profile-list">
+            <span className="muted">Goal</span>
+            <b>{GOAL_OPTIONS.find((o) => o.value === profile.goal)?.label}</b>
+            <span className="muted">Sex</span>
+            <b>{profile.sex === 'male' ? 'Male' : 'Female'}</b>
+            <span className="muted">Age</span>
+            <b>{profile.age}</b>
+            <span className="muted">Height</span>
+            <b>{profile.heightCm} cm</b>
+            <span className="muted">Weight</span>
+            <b>{profile.weightKg} kg</b>
+            <span className="muted">Activity</span>
+            <b>{ACTIVITY_OPTIONS.find((o) => o.value === profile.activity)?.label}</b>
+          </div>
+        ) : (
+          <p className="muted">Answer six short questions and get a suggested calorie and macro goal.</p>
+        )}
+        <Button variant="primary" block icon="user" onClick={onEditProfile}>
+          {profile ? 'Edit profile' : 'Set up my profile'}
+        </Button>
+      </section>
+
+      <h2 className="section-title">Daily targets</h2>
       <section className="card glass">
         {texts &&
           FIELDS.map((f) => (
@@ -86,20 +119,21 @@ export default function SettingsScreen() {
               </span>
             </label>
           ))}
+        <p className="muted">{DISCLAIMER}</p>
       </section>
 
-      <h3 className="section-title">Backup</h3>
+      <h2 className="section-title">Backup</h2>
       <section className="card glass">
         <p className="muted">
-          Your data lives only on this phone. Export a backup now and then, and keep the file somewhere safe
-          (for example in iCloud Drive).
+          Your data lives only on this phone. Export a backup now and then, and keep the file somewhere safe (for
+          example in iCloud Drive).
         </p>
-        <button className="button" onClick={handleExport}>
+        <Button variant="primary" block onClick={handleExport}>
           Export backup
-        </button>
-        <button className="button secondary" onClick={() => fileInput.current?.click()}>
+        </Button>
+        <Button block onClick={() => fileInput.current?.click()}>
           Import backup
-        </button>
+        </Button>
         <input
           ref={fileInput}
           type="file"
