@@ -6,6 +6,8 @@ No account, no server: everything is stored on the phone.
 - Scan a barcode with the camera, product data comes from [Open Food Facts](https://world.openfoodfacts.org)
 - Every scanned product is cached, so re-scanning is instant and works offline
 - Search Open Food Facts by name (Dutch products first), or enter a food manually
+- Scan a nutrition label: photograph the table and the values are read on the phone itself
+  (Tesseract.js, Dutch + English), then shown for you to check before anything is saved
 - Meals (breakfast, lunch, dinner, snacks) with subtotals; tap an entry to edit or delete it
 - Recents, favourites, saved meals and "copy yesterday's meal" for fast logging
 - History tab: week/month calorie chart, daily averages, protein streak, weight log with 7-day average
@@ -22,6 +24,8 @@ npm run dev
 
 Open the address it prints (usually http://localhost:5173). The camera works on `localhost`,
 and in the scanner you can also type a barcode by hand, e.g. `3017620422003` (Nutella).
+
+`npm test` runs the unit tests (the nutrition label parser).
 
 `npm run build` makes the production version in `dist/`, and `npm run preview` serves it
 (this is the version that includes the offline service worker).
@@ -68,6 +72,10 @@ src/
   types.ts                 the shapes of the data: Product, Entry, SavedMeal, WeightEntry, Targets
   db.ts                    the local database (Dexie / IndexedDB), its versions and helper functions
   api.ts                   barcode lookup and name search (local cache first, then Open Food Facts)
+  labelParser.ts           turns OCR text from a nutrition label into per-100g values
+  labelParser.test.ts      unit tests for the parser (Dutch, English and messy OCR samples)
+  image.ts                 crops a photo and prepares it for OCR (resize, grayscale, contrast)
+  ocr.ts                   runs Tesseract.js; only loaded on the first label scan
   backup.ts                export / import of the JSON backup
   utils.ts                 small helpers: dates, meals, macro maths, number parsing
   components/
@@ -76,8 +84,10 @@ src/
     AddScreen.tsx          meal picker, Scan / Search / manual, recents, favourites, saved meals
     Scanner.tsx            the camera view (@zxing/browser)
     SearchSheet.tsx        search by name
+    LabelScanner.tsx       label photo: crop, read, "nothing readable" (loaded on demand)
+    CropBox.tsx            the draggable crop rectangle
     ProductSheet.tsx       product details, grams, meal, "Add to today"
-    ManualForm.tsx         form for a custom food
+    ManualForm.tsx         form for a custom food; also the review screen after a label scan
     SavedMeals.tsx         saved meals list + "save as meal" sheet
     HistoryScreen.tsx      week/month view, averages, protein streak
     BarChart.tsx           the daily calories chart (plain HTML + CSS)
@@ -85,6 +95,25 @@ src/
     SettingsScreen.tsx     daily targets and backup
     CalorieRing.tsx  MacroBar.tsx  MealPicker.tsx  Sheet.tsx  TabBar.tsx   small building blocks
 ```
+
+## How label scanning works
+
+1. "Scan label" opens the camera through a hidden file input (the most reliable way on iOS).
+2. You crop the photo to the nutrition table (`CropBox.tsx`).
+3. `image.ts` resizes the crop, makes it grayscale and stretches the contrast.
+4. `ocr.ts` reads the text with Tesseract.js, using Dutch and English.
+5. `labelParser.ts` finds the energy, protein, carbohydrate and fat rows and takes the
+   per-100g column. It allows for typos in the words, skips "waarvan / of which" rows,
+   and repairs common OCR mistakes, such as the "g" after a number being read as a "9".
+6. The form opens with the values filled in. Nothing is saved until you tap Save.
+
+The Tesseract engine and language files (about 10 MB) are copied from `node_modules` into
+`public/tesseract` by `scripts/copy-tesseract.mjs` when you run `npm run dev` or
+`npm run build`, so the app serves them itself. They are only downloaded on the first label
+scan and then kept on the phone, so later scans work offline.
+
+If a label is read wrongly, the best fix is to add the text Tesseract produced as a new test
+in `labelParser.test.ts`, then change the parser until `npm test` passes.
 
 ## Changing the database
 

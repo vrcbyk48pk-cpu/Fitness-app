@@ -1,20 +1,25 @@
 {
   "name": "fitness-app",
   "private": true,
-  "version": "1.0.0",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "copy-tesseract": "node scripts/copy-tesseract.mjs",
+    "dev": "npm run copy-tesseract && vite",
+    "build": "npm run copy-tesseract && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/nld": "^1.0.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "dexie": "^4.4.7",
     "dexie-react-hooks": "^4.4.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
@@ -22,6 +27,7 @@
     "@vitejs/plugin-react": "^6.3.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
-    "vite-plugin-pwa": "^2.0.0"
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
   }
 }
