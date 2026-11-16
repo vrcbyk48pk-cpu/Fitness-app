@@ -3,9 +3,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { suggestTargets } from '../calculator'
 import { db, deleteWeight, getProfile, getTargets, saveProfile, saveTargets, saveWeight } from '../db'
 import type { Macros, WeightEntry } from '../types'
-import { formatDay, keyToDate, parseNumber, shiftDay, todayKey } from '../utils'
+import { fmt, formatDay, keyToDate, parseNumber, shiftDay, todayKey } from '../utils'
 import Button from './Button'
 import Sheet from './Sheet'
+import { t, num, fixed } from '../i18n'
 
 const DAYS_SHOWN = 90
 
@@ -93,31 +94,31 @@ export default function WeightCard() {
 
   return (
     <>
-      <h2 className="section-title">Weight</h2>
-      <section className="card glass">
+      <h2 className="section-title">{t('weight.title')}</h2>
+      <section className="card surface">
         <form className="input-row" onSubmit={save}>
           <input
             className="input"
             inputMode="decimal"
-            placeholder={latest ? `${latest.kg} kg` : 'Weight in kg'}
+            placeholder={latest ? `${fmt(latest.kg)} kg` : t('weight.placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            aria-label="Weight in kg"
+            aria-label={t('weight.placeholder')}
           />
           <Button variant="primary" type="submit" disabled={!valid}>
-            Log today
+            {t('weight.logToday')}
           </Button>
         </form>
 
         {latest && (
           <div className="stat-row">
             <div className="tile">
-              <b>{latest.kg.toFixed(1)} kg</b>
-              <span>latest · {formatDay(latest.date)}</span>
+              <b>{fixed(latest.kg, 1)} kg</b>
+              <span>{t('weight.latest', { day: formatDay(latest.date) })}</span>
             </div>
             <div className="tile">
-              <b style={{ color: 'var(--protein-text)' }}>{sevenDayAverage(weights, latest.date).toFixed(1)} kg</b>
-              <span>7-day average</span>
+              <b style={{ color: 'var(--protein-text)' }}>{fixed(sevenDayAverage(weights, latest.date), 1)} kg</b>
+              <span>{t('weight.average')}</span>
             </div>
           </div>
         )}
@@ -126,8 +127,8 @@ export default function WeightCard() {
           <>
             {/* key = redraw the line animation when a weigh-in is added */}
             <svg className="weight-chart" viewBox={`0 0 ${W} ${H}`} key={weights.length}>
-              <text x="0" y={PAD.top + 4}>{max.toFixed(1)}</text>
-              <text x="0" y={H - PAD.bottom}>{min.toFixed(1)}</text>
+              <text x="0" y={PAD.top + 4}>{fixed(max, 1)}</text>
+              <text x="0" y={H - PAD.bottom}>{fixed(min, 1)}</text>
               <path className="weight-day-line" d={smoothPath(dayPoints)} />
               {dayPoints.map((p, i) => (
                 <circle key={i} className="weight-dot" cx={p.x} cy={p.y} r="3" />
@@ -138,17 +139,17 @@ export default function WeightCard() {
             <div className="legend">
               <span>
                 <i className="dot" style={{ background: 'var(--accent)' }} />
-                Daily
+                {t('weight.daily')}
               </span>
               <span>
                 <i className="dot" style={{ background: 'var(--protein)' }} />
-                7-day average
+                {t('weight.average')}
               </span>
-              <span>Last {DAYS_SHOWN} days</span>
+              <span>{t('weight.lastDays', { days: DAYS_SHOWN })}</span>
             </div>
           </>
         ) : (
-          <p className="muted">Log your weight on two or more days to see the chart.</p>
+          <p className="muted">{t('weight.needTwo')}</p>
         )}
 
         {/* The latest weigh-ins, newest first, each with a remove button. */}
@@ -159,25 +160,24 @@ export default function WeightCard() {
             .map((w) => (
               <div className="row plain" key={w.date}>
                 <span className="row-main">{formatDay(w.date)}</span>
-                <b>{w.kg.toFixed(1)} kg</b>
-                <Button layout="round" size="small" icon="close" onClick={() => deleteWeight(w.date)} aria-label={`Remove ${w.date}`} />
+                <b>{fixed(w.kg, 1)} kg</b>
+                <Button layout="round" size="small" icon="close" onClick={() => deleteWeight(w.date)} aria-label={t('weight.remove', { date: formatDay(w.date) })} />
               </div>
             ))}
         </div>
       </section>
 
       {offer && (
-        <Sheet title="Update your targets?" onClose={() => setOffer(null)}>
+        <Sheet title={t('weight.offerTitle')} onClose={() => setOffer(null)}>
           <p className="muted">
-            Your weight is now {offer.kg} kg, so the suggested targets changed. Your current targets stay as they are
-            unless you update them.
+            {t('weight.offerText', { kg: fmt(offer.kg) })}
           </p>
-          <div className="label">Current → suggested</div>
+          <div className="label">{t('weight.currentSuggested')}</div>
           <div className="compare">
-            <Comparison label="Calories" unit="kcal" from={offer.current.kcal} to={offer.suggested.kcal} />
-            <Comparison label="Protein" unit="g" from={offer.current.protein} to={offer.suggested.protein} />
-            <Comparison label="Carbs" unit="g" from={offer.current.carbs} to={offer.suggested.carbs} />
-            <Comparison label="Fat" unit="g" from={offer.current.fat} to={offer.suggested.fat} />
+            <Comparison label={t('nutrient.calories')} unit="kcal" from={offer.current.kcal} to={offer.suggested.kcal} />
+            <Comparison label={t('nutrient.protein')} unit="g" from={offer.current.protein} to={offer.suggested.protein} />
+            <Comparison label={t('nutrient.carbs')} unit="g" from={offer.current.carbs} to={offer.suggested.carbs} />
+            <Comparison label={t('nutrient.fat')} unit="g" from={offer.current.fat} to={offer.suggested.fat} />
           </div>
           <div className="sheet-actions">
             <Button
@@ -188,10 +188,10 @@ export default function WeightCard() {
                 setOffer(null)
               }}
             >
-              Update targets
+              {t('weight.update')}
             </Button>
             <Button block onClick={() => setOffer(null)}>
-              Keep current targets
+              {t('weight.keep')}
             </Button>
           </div>
         </Sheet>
@@ -206,10 +206,10 @@ function Comparison(props: { label: string; unit: string; from: number; to: numb
     <>
       <span>{props.label}</span>
       <span className="muted">
-        {Math.round(props.from)} {props.unit}
+        {num(props.from)} {props.unit}
       </span>
       <b>
-        {Math.round(props.to)} {props.unit}
+        {num(props.to)} {props.unit}
       </b>
     </>
   )

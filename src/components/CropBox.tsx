@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import type { Crop } from '../image'
+import { t } from '../i18n'
 
 interface Props {
   photoUrl: string
@@ -57,7 +58,7 @@ export default function CropBox({ photoUrl, crop, setCrop }: Props) {
 
   return (
     <div className="crop-frame" ref={frame}>
-      <img src={photoUrl} alt="Your photo of the label" draggable={false} />
+      <img src={photoUrl} alt={t('label.photoAlt')} draggable={false} />
       <div
         className="crop-box"
         style={{

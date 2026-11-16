@@ -1,8 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { applyAppearance, readAppearance } from './appearance'
 import './theme.css'
 import './styles.css'
+
+// Set the language and theme before anything is drawn.
+applyAppearance(readAppearance())
 
 // Ask the browser not to clear our data when the phone runs low on space.
 navigator.storage?.persist?.()

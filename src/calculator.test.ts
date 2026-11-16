@@ -167,7 +167,7 @@ describe('suggestTargets: safety floor', () => {
     // 1584.3 - 550 = 1034, which is below the BMR of 1320.25 -> 1330 (rounded up).
     const s = suggestTargets({ ...woman, goal: 'lose', pace: 0.5 })
     expect(s.targets.kcal).toBe(1330)
-    expect(s.note).toContain('below the 1320 kcal your body uses at rest')
+    expect(s.note).toContain('below the 1,320 kcal your body uses at rest')
     // The deficit that is left: 1584.3 - 1320.25 = 264 kcal a day = 0.24 kg a week.
     expect(s.weeklyChange).toBeCloseTo(-0.24, 2)
     expect(s.note).toContain('0.24 kg a week')
@@ -209,7 +209,7 @@ describe('paceChoices: comparing the options', () => {
     // 2797.75 - 1100 = 1698, below his BMR of 1805.
     const choices = paceChoices({ ...man, goal: 'lose', targetWeightKg: 75 }, today)
     expect(choices.map((c) => c.available)).toEqual([true, true, true, false])
-    expect(choices[3].reason).toContain('less than the 1805 kcal your body uses at rest')
+    expect(choices[3].reason).toContain('less than the 1,805 kcal your body uses at rest')
     expect(choices[0].reason).toBeUndefined()
   })
 

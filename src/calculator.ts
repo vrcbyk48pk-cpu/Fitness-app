@@ -1,5 +1,6 @@
 // Calorie and macro suggestions from a profile. Pure maths, no browser code,
 // so it is unit-tested in calculator.test.ts.
+import { fixed, num, t } from './i18n'
 import type { Activity, Goal, Macros, Profile } from './types'
 
 // How much more energy you use than at complete rest.
@@ -19,21 +20,22 @@ export const KCAL_PER_KG = 7700
 // (Recomposition means losing fat slowly while building muscle, so its pace is also a deficit.)
 type GoalWithPace = 'lose' | 'muscle' | 'recomp'
 
-export const PACE_OPTIONS: Record<GoalWithPace, { value: number; label: string; recommended?: boolean }[]> = {
+// "labelKey" is the key of the name in the translation files.
+export const PACE_OPTIONS: Record<GoalWithPace, { value: number; labelKey: string; recommended?: boolean }[]> = {
   lose: [
-    { value: 0.25, label: 'Relaxed' },
-    { value: 0.5, label: 'Steady', recommended: true },
-    { value: 0.75, label: 'Fast' },
-    { value: 1, label: 'Very fast' },
+    { value: 0.25, labelKey: 'pace.relaxed' },
+    { value: 0.5, labelKey: 'pace.steady', recommended: true },
+    { value: 0.75, labelKey: 'pace.fast' },
+    { value: 1, labelKey: 'pace.veryFast' },
   ],
   muscle: [
-    { value: 0.25, label: 'Lean', recommended: true },
-    { value: 0.5, label: 'Faster' },
+    { value: 0.25, labelKey: 'pace.lean', recommended: true },
+    { value: 0.5, labelKey: 'pace.faster' },
   ],
   recomp: [
-    { value: 0.25, label: 'Gentle' },
-    { value: 0.5, label: 'Steady', recommended: true },
-    { value: 0.75, label: 'Fast' },
+    { value: 0.25, labelKey: 'pace.gentle' },
+    { value: 0.5, labelKey: 'pace.steady', recommended: true },
+    { value: 0.75, labelKey: 'pace.fast' },
   ],
 }
 
@@ -100,31 +102,29 @@ export function suggestTargets(profile: Profile): Suggestion {
 
   // 1. Calories: maintenance, plus or minus what the goal needs.
   let kcal = maintain
-  let goalText = 'That is your target, to keep your weight where it is.'
+  let goalText = t('calc.maintainText')
   let note: string | undefined
 
   if (profile.goal === 'lose') {
     kcal = maintain - perDay
-    goalText = `Losing ${pace} kg a week takes about ${perDay} kcal less per day.`
+    goalText = t('calc.loseText', { pace: num(pace, 2), kcal: num(perDay) })
   } else if (profile.goal === 'muscle') {
     kcal = maintain + perDay
-    goalText = `Gaining ${pace} kg a week takes about ${perDay} kcal more per day.`
+    goalText = t('calc.muscleText', { pace: num(pace, 2), kcal: num(perDay) })
   } else if (profile.goal === 'recomp') {
     kcal = maintain - perDay
-    goalText = `Body recomposition at ${pace} kg a week takes about ${perDay} kcal less per day.`
+    goalText = t('calc.recompText', { pace: num(pace, 2), kcal: num(perDay) })
   }
 
   if (profile.age < 18 && kcal < maintain) {
     // Still growing: no calorie deficit without a doctor.
     kcal = maintain
-    note = 'Under 18, eating less than you burn is not advised without a doctor, so this is your maintenance level.'
+    note = t('calc.under18')
   } else if (kcal < rest) {
     // Safety floor: never eat less than the body uses at rest.
     kcal = rest
-    const slower = (((maintain - rest) * 7) / KCAL_PER_KG).toFixed(2)
-    note =
-      `Losing ${pace} kg a week would put you below the ${Math.round(rest)} kcal your body uses at rest, ` +
-      `so I stopped there. Expect about ${slower} kg a week instead.`
+    const slower = fixed(((maintain - rest) * 7) / KCAL_PER_KG, 2)
+    note = t('calc.floor', { pace: num(pace, 2), bmr: num(rest), slower })
   }
 
   // What these calories actually do to your weight (before rounding the calories).
@@ -150,11 +150,14 @@ export function suggestTargets(profile: Profile): Suggestion {
     targets: { kcal, protein, carbs, fat },
     weeklyChange,
     note,
-    explanation:
-      `Your body uses about ${Math.round(rest)} kcal at rest (Mifflin-St Jeor). ` +
-      `Times ${ACTIVITY_FACTORS[profile.activity]} for your activity gives ${Math.round(maintain)} kcal to maintain. ` +
-      `${goalText} ` +
-      `Protein is about ${perKg} g per kg of body weight, fat ${FAT_SHARE[profile.goal] * 100}% of calories, and carbs the rest.`,
+    explanation: t('calc.explanation', {
+      bmr: num(rest),
+      factor: num(ACTIVITY_FACTORS[profile.activity], 3),
+      maintenance: num(maintain),
+      goal: goalText,
+      perKg: num(perKg, 1),
+      fat: FAT_SHARE[profile.goal] * 100,
+    }),
   }
 }
 
@@ -182,13 +185,13 @@ export function paceChoices(profile: Profile, from: Date): PaceChoice[] {
     const suggestion = suggestTargets({ ...profile, pace: option.value })
     let reason: string | undefined
     if (isDeficit && profile.age < 18) {
-      reason = 'Not available under 18 without a doctor.'
+      reason = t('calc.notUnder18')
     } else if (isDeficit && maintain - dailyKcalForPace(option.value) < rest) {
-      reason = `Not available: it would mean eating less than the ${Math.round(rest)} kcal your body uses at rest.`
+      reason = t('calc.notAvailable', { bmr: num(rest) })
     }
     return {
       value: option.value,
-      label: option.label,
+      label: t(option.labelKey),
       recommended: option.recommended === true,
       kcal: suggestion.targets.kcal,
       date:
@@ -215,19 +218,19 @@ export function bestPace(choices: PaceChoice[], chosen?: number): number | undef
 // Recomposition suits small changes on the scale. For a big drop, losing weight fits better.
 export function recompTip(currentKg: number, targetKg: number | undefined): string | null {
   if (targetKg === undefined || currentKg - targetKg <= 5) return null
-  return 'That is more than 5 kg below your current weight. The goal "Lose weight" may suit you better.'
+  return t('calc.recompTip')
 }
 
 // ---------- Target weight ----------
 
 // Checks a target weight against the goal. Returns a message when it can't be used, or null when it is fine.
 export function targetWeightProblem(goal: Goal, currentKg: number, targetKg: number): string | null {
-  if (targetKg < 30 || targetKg > 300) return 'Enter a weight between 30 and 300 kg.'
+  if (targetKg < 30 || targetKg > 300) return t('calc.targetRange')
   if (goal === 'lose' && targetKg >= currentKg) {
-    return `To lose weight, your target has to be below your current ${currentKg} kg.`
+    return t('calc.targetLower', { kg: num(currentKg, 1) })
   }
   if (goal === 'muscle' && targetKg <= currentKg) {
-    return `To build muscle, your target has to be above your current ${currentKg} kg.`
+    return t('calc.targetHigher', { kg: num(currentKg, 1) })
   }
   return null
 }
@@ -261,7 +264,7 @@ export function goalDate(profile: Profile, from: Date): Date | null {
 export function longRoadNote(weeks: number | null): string | null {
   if (weeks === null || weeks <= 52) return null
   const months = Math.round(weeks / 4.345)
-  return `That is about ${months} months away at this pace. A long road, but a fine goal: you can change it any time.`
+  return t('calc.longRoad', { months })
 }
 
 // BMI = weight / height². Below 18.5 counts as underweight.
@@ -279,22 +282,15 @@ export function needsGoalDetails(profile: Profile): boolean {
   return !paceChosen || targetMissing
 }
 
-// ---------- The choices, with the text shown in the onboarding and in Settings ----------
+// ---------- The choices, with their text in the current language ----------
 
-export const GOAL_OPTIONS: { value: Goal; label: string; description: string }[] = [
-  { value: 'lose', label: 'Lose weight', description: 'Eat a bit less than you burn' },
-  { value: 'muscle', label: 'Build muscle', description: 'Eat a bit more, with plenty of protein' },
-  { value: 'recomp', label: 'Both', description: 'Body recomposition: lose fat while building muscle' },
-  { value: 'maintain', label: 'Stay healthy', description: 'Keep your weight where it is' },
-]
+const GOALS: Goal[] = ['lose', 'muscle', 'recomp', 'maintain']
+const ACTIVITIES: Activity[] = ['sedentary', 'light', 'moderate', 'very', 'extreme']
 
-export const ACTIVITY_OPTIONS: { value: Activity; label: string; description: string }[] = [
-  { value: 'sedentary', label: 'Sedentary', description: 'Desk job or studying, little exercise' },
-  { value: 'light', label: 'Lightly active', description: 'Light exercise 1–3 days a week' },
-  { value: 'moderate', label: 'Moderately active', description: 'Exercise 3–5 days a week' },
-  { value: 'very', label: 'Very active', description: 'Hard exercise 6–7 days a week' },
-  { value: 'extreme', label: 'Extremely active', description: 'Physical job or training twice a day' },
-]
+export function goalOptions(): { value: Goal; label: string; description: string }[] {
+  return GOALS.map((goal) => ({ value: goal, label: t(`goal.${goal}`), description: t(`goal.${goal}.desc`) }))
+}
 
-export const DISCLAIMER =
-  'These numbers are estimates, not medical advice. Do your own research, and talk to a doctor or dietitian for advice that fits you.'
+export function activityOptions(): { value: Activity; label: string; description: string }[] {
+  return ACTIVITIES.map((a) => ({ value: a, label: t(`activity.${a}`), description: t(`activity.${a}.desc`) }))
+}

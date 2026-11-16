@@ -13,10 +13,11 @@ import {
 } from '../calculator'
 import { getTargets, saveProfile, saveTargets } from '../db'
 import type { Profile } from '../types'
-import { formatDate, parseNumber, todayKey } from '../utils'
+import { fmt, formatDate, parseNumber, todayKey } from '../utils'
 import Button from './Button'
 import PacePicker from './PacePicker'
 import Sheet from './Sheet'
+import { t, num } from '../i18n'
 
 interface Props {
   profile: Profile
@@ -64,16 +65,16 @@ export default function GoalSheet({ profile, asking = false, onClose }: Props) {
   }
 
   return (
-    <Sheet title="Target and pace" onClose={onClose}>
+    <Sheet title={t('goal.sheetTitle')} onClose={onClose}>
       <div className="stack">
         <p className="muted">
-          {asking && 'One thing is missing from your profile. '}
-          You weigh {profile.weightKg} kg now.
-          {goal === 'recomp' && ' A target weight is optional for body recomposition.'}
+          {asking && t('goal.missing')}
+          {t('onb.youWeigh', { kg: fmt(profile.weightKg) })}
+          {goal === 'recomp' && t('goal.recompOptional')}
         </p>
 
         <label className="field">
-          <span>Target weight (kg)</span>
+          <span>{t('goal.targetLabel')}</span>
           <input
             className="input number"
             inputMode="decimal"
@@ -90,14 +91,14 @@ export default function GoalSheet({ profile, asking = false, onClose }: Props) {
         {targetOk && (
           <>
             <div>
-              <div className="label">Pace</div>
+              <div className="label">{t('profile.pace')}</div>
               <PacePicker choices={choices} value={pace} onChange={setChosenPace} targetKg={draft.targetWeightKg} />
             </div>
 
             <p className="estimate">
-              Daily target: {suggestion.targets.kcal} kcal
-              {currentTargets && currentTargets.kcal !== suggestion.targets.kcal && ` (now ${Math.round(currentTargets.kcal)})`}
-              {reachDate && ` · ${target} kg around ${formatDate(reachDate)}`}
+              {t('goal.dailyTarget', { kcal: num(suggestion.targets.kcal) })}
+              {currentTargets && currentTargets.kcal !== suggestion.targets.kcal && t('goal.now', { kcal: num(currentTargets.kcal) })}
+              {reachDate && target !== null && t('goal.around', { target: fmt(target), date: formatDate(reachDate) })}
             </p>
             {suggestion.note && <p className="note">{suggestion.note}</p>}
             {longRoadNote(weeksAway) && <p className="note">{longRoadNote(weeksAway)}</p>}
@@ -107,11 +108,11 @@ export default function GoalSheet({ profile, asking = false, onClose }: Props) {
 
       <div className="sheet-actions">
         <Button variant="primary" block disabled={!targetOk} onClick={save}>
-          Save and update my targets
+          {t('goal.save')}
         </Button>
         {asking && (
           <Button block onClick={onClose}>
-            Not now
+            {t('common.notNow')}
           </Button>
         )}
       </div>

@@ -4,6 +4,7 @@ import type { Product, ProductDraft } from '../types'
 import Button from './Button'
 import Icon from './Icon'
 import Sheet from './Sheet'
+import { t, num } from '../i18n'
 
 interface Props {
   onClose: () => void
@@ -38,24 +39,24 @@ export default function SearchSheet({ onClose, onResult }: Props) {
   }
 
   return (
-    <Sheet title="Search" onClose={onClose}>
+    <Sheet title={t('search.title')} onClose={onClose}>
       <form className="input-row" onSubmit={search}>
         <input
           className="input"
           type="search"
           enterKeyHint="search"
           autoFocus
-          placeholder="e.g. pindakaas"
+          placeholder={t('search.placeholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <Button variant="primary" layout="round" icon="search" type="submit" disabled={status === 'loading'} aria-label="Search" />
+        <Button variant="primary" layout="round" icon="search" type="submit" disabled={status === 'loading'} aria-label={t('search.title')} />
       </form>
 
       <div className="search-results">
-        {status === 'loading' && <p className="empty">Searching…</p>}
+        {status === 'loading' && <p className="empty">{t('search.searching')}</p>}
 
-        {saved.length > 0 && <div className="label">Your foods</div>}
+        {saved.length > 0 && <div className="label">{t('search.yourFoods')}</div>}
         {saved.map((p) => (
           <ResultRow key={p.id} item={p} onClick={() => onResult({ status: 'found', product: p })} />
         ))}
@@ -66,10 +67,10 @@ export default function SearchSheet({ onClose, onResult }: Props) {
         ))}
 
         {status === 'error' && (
-          <p className="note">Could not reach Open Food Facts. Check your connection and try again.</p>
+          <p className="note">{t('search.offline')}</p>
         )}
         {status === 'done' && saved.length + online.length === 0 && (
-          <p className="empty">Nothing found. Try another word, or enter the food manually.</p>
+          <p className="empty">{t('search.nothing')}</p>
         )}
       </div>
     </Sheet>
@@ -88,14 +89,14 @@ function ResultRow({ item, onClick }: { item: ProductDraft; onClick: () => void 
       )}
       <div className="row-main">
         <div className="row-title">{item.name}</div>
-        <div className="muted">{item.brand ?? ('source' in item && item.source === 'mealprep' ? 'Meal prep' : 'No brand')}</div>
+        <div className="muted">{item.brand ?? ('source' in item && item.source === 'mealprep' ? t('picker.mealPrep') : t('search.noBrand'))}</div>
       </div>
       <div className="result-kcal">
         {item.kcal === undefined ? (
-          <span className="muted">no kcal</span>
+          <span className="muted">{t('search.noKcal')}</span>
         ) : (
           <>
-            <b>{Math.round(item.kcal)}</b>
+            <b>{num(item.kcal)}</b>
             <span className="muted">kcal/100g</span>
           </>
         )}

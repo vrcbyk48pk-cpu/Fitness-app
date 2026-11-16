@@ -8,6 +8,7 @@ import Button from './Button'
 import ExtrasLine from './ExtrasLine'
 import MacroTiles from './MacroTiles'
 import ProductPicker from './ProductPicker'
+import { t, num, inputNumber } from '../i18n'
 
 interface Props {
   prep: MealPrep | null // the meal prep to edit, or null for a new one
@@ -27,8 +28,8 @@ interface AmountState {
 export default function MealPrepEditor({ prep, onDone }: Props) {
   const [name, setName] = useState(prep?.name ?? '')
   const [ingredients, setIngredients] = useState<Ingredient[]>(prep?.ingredients ?? [])
-  const [cookedText, setCookedText] = useState(prep ? fmt(prep.cookedWeight) : '')
-  const [portionsText, setPortionsText] = useState(prep?.portions ? fmt(prep.portions) : '')
+  const [cookedText, setCookedText] = useState(prep ? inputNumber(prep.cookedWeight) : '')
+  const [portionsText, setPortionsText] = useState(prep?.portions ? inputNumber(prep.portions) : '')
   const [picking, setPicking] = useState(false) // choosing a product to add
   const [amount, setAmount] = useState<AmountState | null>(null)
 
@@ -70,8 +71,8 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
     return (
       <>
         <header className="page-head">
-          <h1 className="page-title">Add ingredient</h1>
-          <Button variant="glass" layout="round" icon="close" onClick={() => setPicking(false)} aria-label="Back to the meal prep" />
+          <h1 className="page-title">{t('prep.addIngredient')}</h1>
+          <Button variant="soft" layout="round" icon="close" onClick={() => setPicking(false)} aria-label={t('prep.backToPrep')} />
         </header>
         <ProductPicker
           onPick={(product) => {
@@ -86,21 +87,21 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
   return (
     <>
       <header className="page-head">
-        <h1 className="page-title">{prep ? 'Edit meal prep' : 'New meal prep'}</h1>
-        <Button variant="glass" layout="round" icon="close" onClick={onDone} aria-label="Cancel" />
+        <h1 className="page-title">{prep ? t('prep.edit') : t('prep.new')}</h1>
+        <Button variant="soft" layout="round" icon="close" onClick={onDone} aria-label={t('common.cancel')} />
       </header>
 
-      <section className="card glass">
+      <section className="card surface">
         <label className="field">
-          <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chicken soup" />
+          <span>{t('common.name')}</span>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('prep.namePlaceholder')} />
         </label>
       </section>
 
-      <h2 className="section-title">Ingredients</h2>
-      {ingredients.length === 0 && <p className="empty">Add everything that goes into the pot, with its raw weight.</p>}
+      <h2 className="section-title">{t('prep.ingredients')}</h2>
+      {ingredients.length === 0 && <p className="empty">{t('prep.emptyIngredients')}</p>}
       {ingredients.map((ingredient, i) => (
-        <div className="row glass" key={i}>
+        <div className="row surface" key={i}>
           {/* Tap an ingredient to change its amount. */}
           <button
             className="row-main"
@@ -116,7 +117,7 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
           >
             <div className="row-title">{ingredient.name}</div>
             <div className="muted">
-              {fmt(ingredient.grams)} g · {Math.round(ingredient.kcal)} kcal
+              {fmt(ingredient.grams)} g · {num(ingredient.kcal)} kcal
             </div>
           </button>
           <Button
@@ -124,19 +125,19 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
             layout="round"
             icon="close"
             onClick={() => setIngredients(ingredients.filter((_, index) => index !== i))}
-            aria-label={`Remove ${ingredient.name}`}
+            aria-label={t('prep.removeIngredient', { name: ingredient.name })}
           />
         </div>
       ))}
-      <Button variant="glass" block icon="plus" onClick={() => setPicking(true)}>
-        Add ingredient
+      <Button variant="soft" block icon="plus" onClick={() => setPicking(true)}>
+        {t('prep.addIngredient')}
       </Button>
 
-      <h2 className="section-title">After cooking</h2>
-      <section className="card glass">
+      <h2 className="section-title">{t('prep.afterCooking')}</h2>
+      <section className="card surface">
         <div className="field-grid">
           <label className="field">
-            <span>Cooked weight (g)</span>
+            <span>{t('prep.cookedWeight')}</span>
             <input
               className="input number"
               inputMode="decimal"
@@ -146,7 +147,7 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
             />
           </label>
           <label className="field">
-            <span>Portions (optional)</span>
+            <span>{t('prep.portionsOptional')}</span>
             <input
               className="input number"
               inputMode="decimal"
@@ -157,8 +158,8 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
           </label>
         </div>
         <p className="muted">
-          Weigh the whole finished dish (without the pot).
-          {ingredients.length > 0 && ` The raw ingredients weigh ${fmt(rawWeight(draft))} g together.`}
+          {t('prep.weighHint')}
+          {ingredients.length > 0 && t('prep.rawHint', { grams: fmt(rawWeight(draft)) })}
         </p>
 
         {problem ? (
@@ -166,13 +167,13 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
         ) : (
           <>
             <div>
-              <div className="label">Per 100 g</div>
+              <div className="label">{t('common.per100g')}</div>
               <MacroTiles {...per100g(draft)} />
               <ExtrasLine {...per100g(draft)} />
             </div>
             {portion !== undefined && (
               <div>
-                <div className="label">Per portion ({fmt(portion)} g)</div>
+                <div className="label">{t('prep.perPortion', { grams: fmt(portion) })}</div>
                 <MacroTiles {...perPortion(draft)!} />
                 <ExtrasLine {...perPortion(draft)!} />
               </div>
@@ -183,7 +184,7 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
 
       <div className="stack save-bar">
         <Button variant="primary" block disabled={problem !== null} onClick={save}>
-          Save meal prep
+          {t('prep.save')}
         </Button>
       </div>
 
@@ -192,7 +193,7 @@ export default function MealPrepEditor({ prep, onDone }: Props) {
           name={amount.name}
           per100g={amount.per100g}
           initialGrams={amount.grams}
-          actionLabel={amount.index === undefined ? 'Add ingredient' : 'Save amount'}
+          actionLabel={amount.index === undefined ? t('prep.addIngredient') : t('prep.saveAmount')}
           onSave={saveAmount}
           onClose={() => setAmount(null)}
         />

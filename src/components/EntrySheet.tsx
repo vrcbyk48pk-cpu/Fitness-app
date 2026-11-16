@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { deleteEntry, updateEntry } from '../db'
 import type { Entry } from '../types'
-import { fmt, parseNumber } from '../utils'
+import { parseNumber } from '../utils'
 import Button from './Button'
 import MealPicker from './MealPicker'
 import Sheet from './Sheet'
+import { t, tn, num, inputNumber } from '../i18n'
 
 interface Props {
   entry: Entry
@@ -13,7 +14,7 @@ interface Props {
 
 // Edit a logged food: change the grams or the meal, or delete it.
 export default function EntrySheet({ entry, onClose }: Props) {
-  const [gramsText, setGramsText] = useState(fmt(entry.grams))
+  const [gramsText, setGramsText] = useState(inputNumber(entry.grams))
   const [meal, setMeal] = useState(entry.meal)
 
   const grams = parseNumber(gramsText)
@@ -34,7 +35,7 @@ export default function EntrySheet({ entry, onClose }: Props) {
 
   return (
     <Sheet title={entry.name} onClose={onClose}>
-      <div className="label">Amount</div>
+      <div className="label">{t('common.amount')}</div>
       <div className="input-row">
         <input
           className="input number amount-input"
@@ -42,25 +43,25 @@ export default function EntrySheet({ entry, onClose }: Props) {
           value={gramsText}
           onChange={(e) => setGramsText(e.target.value)}
           onFocus={(e) => e.target.select()}
-          aria-label="Grams"
+          aria-label={t('common.gramsLabel')}
         />
-        <span className="muted">grams · {Math.round(kcal)} kcal</span>
+        <span className="muted">{t('entry.gramsKcal', { kcal: num(kcal) })}</span>
       </div>
       {entry.portions !== undefined && (
         <p className="muted extras">
-          Logged as {fmt(entry.portions)} {entry.portions === 1 ? 'portion' : 'portions'}
+          {t('entry.loggedAs', { portions: tn('amount.portions', entry.portions) })}
         </p>
       )}
 
-      <div className="label">Meal</div>
+      <div className="label">{t('common.meal')}</div>
       <MealPicker meal={meal} setMeal={setMeal} inset />
 
       <div className="sheet-actions">
         <Button variant="primary" block onClick={save} disabled={!valid}>
-          Save
+          {t('common.save')}
         </Button>
         <Button variant="danger" block onClick={remove}>
-          Delete entry
+          {t('entry.delete')}
         </Button>
       </div>
     </Sheet>

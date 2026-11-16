@@ -29,7 +29,8 @@ export default defineConfig({
       },
       workbox: {
         // Pre-cache the app itself so it opens offline.
-        globPatterns: ['**/*.{js,css,html,png,svg}'],
+        // woff2 = the fonts of all six themes, so switching theme also works offline.
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         // ...except the label reader (about 4 MB). It is only fetched on the first label scan.
         globIgnores: ['tesseract/**'],
         // Keep product photos from Open Food Facts so they also show offline.

@@ -3,9 +3,9 @@ import Icon, { type IconName } from './Icon'
 // The one button of the app. Every tappable action uses this component,
 // so buttons look and behave the same on every screen.
 interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  // primary = the main action; glass = frosted, on the page background;
+  // primary = the main action; soft = a raised secondary button, on the page background;
   // quiet = subtle fill, inside cards and sheets; danger = destructive text button
-  variant?: 'primary' | 'glass' | 'quiet' | 'danger'
+  variant?: 'primary' | 'soft' | 'quiet' | 'danger'
   size?: 'small' | 'regular'
   // inline = icon next to the label; stacked = icon above the label; round = icon only
   layout?: 'inline' | 'stacked' | 'round'

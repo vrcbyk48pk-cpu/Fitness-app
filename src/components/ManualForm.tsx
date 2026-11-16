@@ -4,6 +4,7 @@ import type { Product, ProductDraft } from '../types'
 import { parseNumber } from '../utils'
 import Button from './Button'
 import Sheet from './Sheet'
+import { t, inputNumber } from '../i18n'
 
 interface Props {
   draft: ProductDraft // values we already know (may be empty)
@@ -15,7 +16,7 @@ interface Props {
 }
 
 // Turns an optional number into the text shown in an input.
-const text = (value?: number) => (value === undefined ? '' : String(value))
+const text = (value?: number) => (value === undefined ? '' : inputNumber(value))
 
 // An optional field: empty means "unknown" (undefined); otherwise it must be a number (null = invalid).
 function optional(value: string): number | undefined | null {
@@ -80,47 +81,47 @@ export default function ManualForm({ draft, note, photo, onScanLabel, onClose, o
   const highlight = (missing: boolean) => !!photo && missing
 
   return (
-    <Sheet title={photo ? 'Check the values' : 'Custom food'} onClose={onClose}>
+    <Sheet title={photo ? t('manual.checkValues') : t('manual.custom')} onClose={onClose}>
       <form className="stack" onSubmit={save}>
         {note && <p className="note">{note}</p>}
         {onScanLabel && (
           <Button variant="primary" block icon="camera" onClick={onScanLabel}>
-            Scan label
+            {t('manual.scanLabel')}
           </Button>
         )}
-        {photo && <img className="label-photo" src={photo} alt="The label that was read" />}
+        {photo && <img className="label-photo" src={photo} alt={t('manual.photoAlt')} />}
 
         <label className="field">
-          <span>Name</span>
+          <span>{t('common.name')}</span>
           <input
             className={highlight(!name.trim()) ? 'input missing' : 'input'}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Mum's lasagne"
+            placeholder={t('manual.namePlaceholder')}
           />
         </label>
 
         <div>
-          <div className="label">Per 100 g</div>
+          <div className="label">{t('common.per100g')}</div>
           <div className="field-grid">
-            <NumberField label="Calories (kcal)" value={kcal} onChange={setKcal} highlight={highlight(values.kcal === null)} />
-            <NumberField label="Protein (g)" value={protein} onChange={setProtein} highlight={highlight(values.protein === null)} />
-            <NumberField label="Carbs (g)" value={carbs} onChange={setCarbs} highlight={highlight(values.carbs === null)} />
-            <NumberField label="Fat (g)" value={fat} onChange={setFat} highlight={highlight(values.fat === null)} />
+            <NumberField label={t('field.kcal')} value={kcal} onChange={setKcal} highlight={highlight(values.kcal === null)} />
+            <NumberField label={t('field.protein')} value={protein} onChange={setProtein} highlight={highlight(values.protein === null)} />
+            <NumberField label={t('field.carbs')} value={carbs} onChange={setCarbs} highlight={highlight(values.carbs === null)} />
+            <NumberField label={t('field.fat')} value={fat} onChange={setFat} highlight={highlight(values.fat === null)} />
           </div>
         </div>
 
         <div>
-          <div className="label">Optional, per 100 g</div>
+          <div className="label">{t('manual.optional')}</div>
           <div className="field-grid three">
-            <NumberField label="Fibre (g)" value={fibre} onChange={setFibre} placeholder="–" />
-            <NumberField label="Sugar (g)" value={sugar} onChange={setSugar} placeholder="–" />
-            <NumberField label="Salt (g)" value={salt} onChange={setSalt} placeholder="–" />
+            <NumberField label={t('field.fibre')} value={fibre} onChange={setFibre} placeholder="–" />
+            <NumberField label={t('field.sugar')} value={sugar} onChange={setSugar} placeholder="–" />
+            <NumberField label={t('field.salt')} value={salt} onChange={setSalt} placeholder="–" />
           </div>
         </div>
 
         <Button variant={onScanLabel ? 'quiet' : 'primary'} block type="submit" disabled={!valid}>
-          Save and continue
+          {t('manual.save')}
         </Button>
       </form>
     </Sheet>
@@ -144,7 +145,7 @@ function NumberField({ label, value, onChange, highlight, placeholder = '0' }: F
         inputMode="decimal"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={highlight ? 'fill in' : placeholder}
+        placeholder={highlight ? t('manual.fillIn') : placeholder}
       />
     </label>
   )

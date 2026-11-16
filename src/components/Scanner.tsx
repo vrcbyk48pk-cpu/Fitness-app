@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { BarcodeFormat, BrowserMultiFormatReader } from '@zxing/browser'
 import { DecodeHintType } from '@zxing/library'
 import Button from './Button'
+import { t } from '../i18n'
 
 interface Props {
   onDetected: (barcode: string) => void
@@ -81,7 +82,7 @@ export default function Scanner({ onDetected, onClose }: Props) {
         }
       })
       .catch(() => {
-        setError('Could not open the camera. Allow camera access in Safari, or type the barcode below.')
+        setError(t('scanner.cameraError'))
       })
 
     // Clean-up: runs when the scanner closes.
@@ -109,7 +110,7 @@ export default function Scanner({ onDetected, onClose }: Props) {
       {!error && (
         <>
           <div className="scanner-frame" />
-          <p className="scanner-hint">Hold the barcode inside the frame</p>
+          <p className="scanner-hint">{t('scanner.hint')}</p>
         </>
       )}
       {error && <p className="scanner-hint">{error}</p>}
@@ -118,22 +119,22 @@ export default function Scanner({ onDetected, onClose }: Props) {
         {/* An empty box keeps the close button on the right when there is no torch. */}
         {hasTorch ? (
           <Button
-            variant="glass"
+            variant="soft"
             layout="round"
             icon={torchOn ? 'torchOn' : 'torch'}
             className={torchOn ? 'torch-on' : ''}
             onClick={toggleTorch}
-            aria-label={torchOn ? 'Turn flashlight off' : 'Turn flashlight on'}
+            aria-label={torchOn ? t('scanner.torchOff') : t('scanner.torchOn')}
             aria-pressed={torchOn}
           />
         ) : (
           <span />
         )}
-        <Button variant="glass" layout="round" icon="close" onClick={onClose} aria-label="Close scanner" />
+        <Button variant="soft" layout="round" icon="close" onClick={onClose} aria-label={t('scanner.close')} />
       </div>
 
       <form
-        className="scanner-manual glass"
+        className="scanner-manual chip"
         onSubmit={(e) => {
           e.preventDefault()
           const digits = typed.replace(/\D/g, '')
@@ -142,12 +143,12 @@ export default function Scanner({ onDetected, onClose }: Props) {
       >
         <input
           inputMode="numeric"
-          placeholder="Or type the barcode"
+          placeholder={t('scanner.typeBarcode')}
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
         />
         <Button variant="primary" size="small" type="submit">
-          Go
+          {t('scanner.go')}
         </Button>
       </form>
     </div>

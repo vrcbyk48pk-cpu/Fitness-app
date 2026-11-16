@@ -1,5 +1,6 @@
 // Reading, checking and merging backup files. Pure functions (no database, no browser),
 // unit-tested in backupData.test.ts. The file handling itself is in backup.ts.
+import { t } from './i18n'
 import type { Entry, MealPrep, Product, SavedMeal, WeightEntry } from './types'
 import { mealForTime } from './utils'
 
@@ -32,7 +33,7 @@ const isNumber = (value: unknown): value is number => typeof value === 'number' 
 function list(file: Record<string, unknown>, key: string): unknown[] {
   const value = file[key]
   if (value === undefined) return []
-  if (!Array.isArray(value)) throw new Error(`This backup is damaged: "${key}" is not a list.`)
+  if (!Array.isArray(value)) throw new Error(t('backup.err.list', { key }))
   return value
 }
 
@@ -43,21 +44,21 @@ export function readBackup(text: string): BackupData {
   try {
     file = JSON.parse(text)
   } catch {
-    throw new Error('That file is not a backup: it is not valid JSON.')
+    throw new Error(t('backup.err.json'))
   }
   if (!isObject(file) || file.app !== 'calorie-tracker') {
-    throw new Error('That file is not a backup from this app.')
+    throw new Error(t('backup.err.notOurs'))
   }
   if (isNumber(file.version) && file.version > BACKUP_VERSION) {
-    throw new Error('This backup was made by a newer version of the app. Update the app first.')
+    throw new Error(t('backup.err.newer'))
   }
   if (!Array.isArray(file.products) || !Array.isArray(file.entries)) {
-    throw new Error('This backup is damaged: it has no products or entries.')
+    throw new Error(t('backup.err.noData'))
   }
 
   const products = file.products.map((p, i) => {
     if (!isObject(p) || typeof p.id !== 'string' || typeof p.name !== 'string' || !isNumber(p.kcal)) {
-      throw new Error(`This backup is damaged: product ${i + 1} is incomplete.`)
+      throw new Error(t('backup.err.product', { n: i + 1 }))
     }
     return p as unknown as Product
   })
@@ -71,7 +72,7 @@ export function readBackup(text: string): BackupData {
       !isNumber(e.grams) ||
       !isNumber(e.kcal)
     ) {
-      throw new Error(`This backup is damaged: entry ${i + 1} is incomplete.`)
+      throw new Error(t('backup.err.entry', { n: i + 1 }))
     }
     const entry = e as unknown as Entry
     // Backups from the first version have no meals yet: derive them from the time logged.
@@ -149,10 +150,10 @@ export function daysSince(timestamp: number, now: number): number {
 
 // "Last backup: ..." text for Settings.
 export function lastBackupText(lastBackup: number | undefined, now: number): string {
-  if (lastBackup === undefined) return 'never'
+  if (lastBackup === undefined) return t('backup.never')
   const days = daysSince(lastBackup, now)
-  if (days <= 0) return 'today'
-  return days === 1 ? 'yesterday' : `${days} days ago`
+  if (days <= 0) return t('backup.today')
+  return days === 1 ? t('backup.yesterday') : t('backup.daysAgo', { days })
 }
 
 // Should Today show the backup reminder?

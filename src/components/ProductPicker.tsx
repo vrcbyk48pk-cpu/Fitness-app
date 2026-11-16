@@ -1,7 +1,8 @@
 import { lazy, Suspense, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { lookupBarcode, type LookupResult } from '../api'
-import { db } from '../db'
+import { db, removeFromRecents } from '../db'
+import { t } from '../i18n'
 import { addsUp } from '../labelParser'
 import type { Product, ProductDraft } from '../types'
 import { fmt, nutrientsFor } from '../utils'
@@ -11,6 +12,7 @@ import ManualForm from './ManualForm'
 import Scanner from './Scanner'
 import SearchSheet from './SearchSheet'
 import Segmented from './Segmented'
+import SwipeRow from './SwipeRow'
 
 // The label scanner (and with it the OCR code) is only downloaded when it is first used.
 const LabelScanner = lazy(() => import('./LabelScanner'))
@@ -54,7 +56,8 @@ export default function ProductPicker({ onPick, onQuickAdd, extraLists = [] }: P
 
   // All saved products, most recently used first.
   const products = useLiveQuery(() => db.products.orderBy('lastUsed').reverse().toArray()) ?? []
-  const shown = list === 'recent' ? products.slice(0, 30) : products.filter((p) => p.favourite)
+  // A product with lastUsed 0 was removed from Recents (it still exists, e.g. as a favourite).
+  const shown = list === 'recent' ? products.filter((p) => p.lastUsed > 0).slice(0, 30) : products.filter((p) => p.favourite)
   const extra = extraLists.find((l) => l.value === list)
 
   // Decides what to do after a scan or a tapped search result.
@@ -64,19 +67,19 @@ export default function ProductPicker({ onPick, onQuickAdd, extraLists = [] }: P
     } else if (result.status === 'incomplete') {
       setManual({
         draft: result.draft,
-        note: `Open Food Facts has no ${result.missing.join(', ')} for this product. Scan the label, or fill in the gaps yourself.`,
+        note: t('picker.incomplete', { missing: result.missing.map((id) => t(`missing.${id}`)).join(', ') }),
         canScanLabel: true,
       })
     } else if (result.status === 'not-found') {
       setManual({
         draft: { id: barcode },
-        note: `Barcode ${barcode} was not found. Scan the label or type the values, and it will be recognised next time.`,
+        note: t('picker.notFound', { barcode: barcode ?? '' }),
         canScanLabel: true,
       })
     } else {
       setManual({
         draft: { id: barcode },
-        note: 'Could not reach Open Food Facts (are you offline?). Scan the label or type the values instead.',
+        note: t('picker.offline'),
         canScanLabel: true,
       })
     }
@@ -101,14 +104,14 @@ export default function ProductPicker({ onPick, onQuickAdd, extraLists = [] }: P
     <>
       {/* The three ways to find a food, as equal buttons. */}
       <div className="actions">
-        <Button variant="glass" layout="stacked" icon="barcode" onClick={() => setScanning(true)} disabled={loading}>
-          {loading ? 'Looking up…' : 'Scan'}
+        <Button variant="soft" layout="stacked" icon="barcode" onClick={() => setScanning(true)} disabled={loading}>
+          {loading ? t('picker.lookingUp') : t('picker.scan')}
         </Button>
-        <Button variant="glass" layout="stacked" icon="search" onClick={() => setSearching(true)}>
-          Search
+        <Button variant="soft" layout="stacked" icon="search" onClick={() => setSearching(true)}>
+          {t('picker.search')}
         </Button>
-        <Button variant="glass" layout="stacked" icon="pencil" onClick={() => setManual({ draft: {} })}>
-          Manual
+        <Button variant="soft" layout="stacked" icon="pencil" onClick={() => setManual({ draft: {} })}>
+          {t('picker.manual')}
         </Button>
       </div>
 
@@ -131,8 +134,8 @@ export default function ProductPicker({ onPick, onQuickAdd, extraLists = [] }: P
       <div className="list-picker">
         <Segmented
           options={[
-            { value: 'recent', label: 'Recent' },
-            { value: 'favourites', label: 'Favourites' },
+            { value: 'recent', label: t('picker.recent') },
+            { value: 'favourites', label: t('picker.favourites') },
             ...extraLists.map(({ value, label }) => ({ value, label })),
           ]}
           value={list}
@@ -147,31 +150,41 @@ export default function ProductPicker({ onPick, onQuickAdd, extraLists = [] }: P
           {shown.length === 0 && (
             <p className="empty">
               {list === 'recent'
-                ? 'Foods you scan, search or create will show up here.'
-                : 'Tap the star on a food to keep it here.'}
+                ? t('picker.emptyRecent')
+                : t('picker.emptyFavourites')}
             </p>
           )}
-          {shown.map((p) => (
-            <div className="row glass" key={p.id}>
-              <button className="row-main" onClick={() => onPick(p)}>
-                <div className="row-title">
-                  {p.favourite && (
-                    <span className="row-star">
-                      <Icon name="starFilled" size={16} />
-                    </span>
-                  )}
-                  {p.name}
-                </div>
-                <div className="muted">
-                  {p.source === 'mealprep' && 'Meal prep · '}
-                  {fmt(p.lastGrams)} g · {Math.round(nutrientsFor(p, p.lastGrams).kcal)} kcal
-                </div>
-              </button>
-              {onQuickAdd && (
-                <Button variant="primary" size="small" layout="round" icon="plus" onClick={() => onQuickAdd(p)} aria-label={`Add ${p.name}`} />
-              )}
-            </div>
-          ))}
+          {shown.map((p) => {
+            const row = (
+              <div className="row surface">
+                <button className="row-main" onClick={() => onPick(p)}>
+                  <div className="row-title">
+                    {p.favourite && (
+                      <span className="row-star">
+                        <Icon name="starFilled" size={16} />
+                      </span>
+                    )}
+                    {p.name}
+                  </div>
+                  <div className="muted">
+                    {p.source === 'mealprep' && `${t('picker.mealPrep')} · `}
+                    {fmt(p.lastGrams)} g · {Math.round(nutrientsFor(p, p.lastGrams).kcal)} kcal
+                  </div>
+                </button>
+                {onQuickAdd && (
+                  <Button variant="primary" size="small" layout="round" icon="plus" onClick={() => onQuickAdd(p)} aria-label={t('picker.add', { name: p.name })} />
+                )}
+              </div>
+            )
+            // In Recent, swiping a row left reveals "Remove". It only takes the food off this list.
+            return list === 'recent' ? (
+              <SwipeRow key={p.id} actionLabel={t('common.remove')} actionIcon="trash" onAction={() => removeFromRecents(p.id)}>
+                {row}
+              </SwipeRow>
+            ) : (
+              <div key={p.id}>{row}</div>
+            )
+          })}
         </>
       )}
 
@@ -204,8 +217,8 @@ export default function ProductPicker({ onPick, onQuickAdd, extraLists = [] }: P
                 draft: { ...labelDraft, ...values },
                 photo: preview,
                 note: addsUp(values)
-                  ? 'Check these against the photo. Highlighted fields could not be read.'
-                  : 'Check these carefully against the photo: the calories do not match the other values, so one of them was probably misread.',
+                  ? t('picker.checkPhoto')
+                  : t('picker.checkCarefully'),
               })
             }}
           />

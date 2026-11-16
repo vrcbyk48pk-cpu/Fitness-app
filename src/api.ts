@@ -43,11 +43,11 @@ function toDraft(barcode: string, p: any): ProductDraft {
   }
 }
 
-// Lists what is missing, so the user can fill it in from the label.
+// Lists which values are missing ('name', 'kcal', 'protein', 'carbs', 'fat'), so the user can fill them in.
 function missingFields(draft: ProductDraft): string[] {
   const missing: string[] = []
   if (!draft.name) missing.push('name')
-  if (draft.kcal === undefined) missing.push('calories')
+  if (draft.kcal === undefined) missing.push('kcal')
   if (draft.protein === undefined) missing.push('protein')
   if (draft.carbs === undefined) missing.push('carbs')
   if (draft.fat === undefined) missing.push('fat')
