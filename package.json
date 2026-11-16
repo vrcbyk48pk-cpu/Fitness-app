@@ -1,7 +1,7 @@
 {
   "name": "fitness-app",
   "private": true,
-  "version": "5.0.0",
+  "version": "6.0.0",
   "type": "module",
   "scripts": {
     "copy-tesseract": "node scripts/copy-tesseract.mjs",
@@ -11,6 +11,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/anton": "^5.3.0",
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/fraunces": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
+    "@fontsource/press-start-2p": "^5.3.0",
+    "@fontsource/shrikhand": "^5.3.0",
+    "@fontsource/vt323": "^5.3.0",
+    "@fontsource/work-sans": "^5.3.0",
     "@tesseract.js-data/eng": "^1.0.0",
     "@tesseract.js-data/nld": "^1.0.0",
     "@zxing/browser": "^0.2.1",
@@ -22,6 +31,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",

@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { goalDate } from '../calculator'
 import { db, getProfile } from '../db'
 import { fmt, formatDate } from '../utils'
+import { t } from '../i18n'
 
 // Progress towards the target weight: start -> now -> target.
 // Shows nothing when there is no profile or no target weight.
@@ -26,20 +27,20 @@ export default function GoalProgress() {
 
   return (
     <>
-      <h2 className="section-title">Goal progress</h2>
-      <section className="card glass">
+      <h2 className="section-title">{t('progress.title')}</h2>
+      <section className="card surface">
         <div className="stat-row">
           <div className="tile">
             <b>{fmt(start)} kg</b>
-            <span>start</span>
+            <span>{t('progress.start')}</span>
           </div>
           <div className="tile">
             <b style={{ color: 'var(--accent-text)' }}>{fmt(now)} kg</b>
-            <span>now</span>
+            <span>{t('progress.now')}</span>
           </div>
           <div className="tile">
             <b>{fmt(target)} kg</b>
-            <span>target</span>
+            <span>{t('progress.target')}</span>
           </div>
         </div>
 
@@ -48,13 +49,13 @@ export default function GoalProgress() {
         </div>
 
         {reached ? (
-          <p className="estimate">You reached your target weight.</p>
+          <p className="estimate">{t('progress.reached')}</p>
         ) : (
           <div>
             <p className="estimate">
-              {fmt(Math.abs(now - start))} kg {total <= 0 ? 'lost' : 'gained'} · {fmt(toGo)} kg to go
+              {t(total <= 0 ? 'progress.lost' : 'progress.gained', { done: fmt(Math.abs(now - start)), toGo: fmt(toGo) })}
             </p>
-            {date && <p className="muted">Estimated to reach {fmt(target)} kg around {formatDate(date)}</p>}
+            {date && <p className="muted">{t('progress.estimate', { target: fmt(target), date: formatDate(date) })}</p>}
           </div>
         )}
       </section>

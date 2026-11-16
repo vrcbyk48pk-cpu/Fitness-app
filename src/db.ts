@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { SettingRow } from './backupData'
+import { t } from './i18n'
 import { prepProductId, toProduct } from './mealPrep'
 import type { Entry, Meal, MealPrep, Product, Profile, SavedMeal, Targets, WeightEntry } from './types'
 import { mealForTime, nutrientsFor, scaleNutrients, shiftDay, todayKey } from './utils'
@@ -11,6 +12,9 @@ import { mealForTime, nutrientsFor, scaleNutrients, shiftDay, todayKey } from '.
 //   "paceAsked"         -> true (tapped "Not now" on the pace question)
 //   "lastBackup"        -> timestamp of the last backup made on this phone
 //   "backupBannerDismissed" -> timestamp of when the backup reminder was closed
+//   "language"          -> 'en' | 'nl'
+//   "theme"             -> the id of the chosen theme
+//   "appearanceChosen"  -> true once language and theme were picked
 
 // The local database (IndexedDB, via Dexie). Everything stays on the phone.
 class AppDatabase extends Dexie {
@@ -115,6 +119,23 @@ export async function needsOnboarding(): Promise<boolean> {
 export const paceAsked = async () => (await getSetting('paceAsked')) !== undefined
 export const dismissPaceQuestion = () => setSetting('paceAsked', true)
 
+// ---------- Appearance ----------
+
+export const getAppearanceChosen = async () => (await getSetting('appearanceChosen')) === true
+
+export async function saveAppearance(language: string, theme: string): Promise<void> {
+  await db.settings.bulkPut([
+    { key: 'language', value: language },
+    { key: 'theme', value: theme },
+    { key: 'appearanceChosen', value: true },
+  ])
+}
+
+export const getSavedAppearance = async () => ({
+  language: await getSetting<string>('language'),
+  theme: await getSetting<string>('theme'),
+})
+
 // ---------- Backups ----------
 
 export const getLastBackup = () => getSetting<number>('lastBackup')
@@ -135,6 +156,16 @@ export async function saveProduct(product: Product): Promise<void> {
 
 export async function setFavourite(id: string, favourite: boolean): Promise<void> {
   await db.products.update(id, { favourite })
+}
+
+// "Recent" lists the products with a lastUsed time. Setting it to 0 takes a product off that
+// list without deleting it: favourites, meal preps and scanned barcodes keep working.
+export async function removeFromRecents(id: string): Promise<void> {
+  await db.products.update(id, { lastUsed: 0 })
+}
+
+export async function clearRecents(): Promise<void> {
+  await db.products.toCollection().modify({ lastUsed: 0 })
 }
 
 // ---------- Entries ----------
@@ -231,7 +262,7 @@ export async function deleteMealPrep(id: string): Promise<void> {
 }
 
 export async function duplicateMealPrep(prep: MealPrep): Promise<void> {
-  await saveMealPrep({ ...prep, id: crypto.randomUUID(), name: `${prep.name} (copy)`, updatedAt: Date.now() })
+  await saveMealPrep({ ...prep, id: crypto.randomUUID(), name: t('prep.copyName', { name: prep.name }), updatedAt: Date.now() })
 }
 
 // ---------- Weight ----------

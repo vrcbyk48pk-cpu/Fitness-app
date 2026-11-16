@@ -1,35 +1,43 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { type Appearance, chooseAppearance } from '../appearance'
 import { backUpNow, mergeBackup, replaceWithBackup } from '../backup'
 import { type BackupData, lastBackupText, readBackup } from '../backupData'
-import { ACTIVITY_OPTIONS, DISCLAIMER, GOAL_OPTIONS } from '../calculator'
-import { getLastBackup, getProfile, getTargets, saveTargets } from '../db'
+import { activityOptions, goalOptions } from '../calculator'
+import { clearRecents, getLastBackup, getProfile, getTargets, saveTargets } from '../db'
+import { LANGUAGES, locale, num, t } from '../i18n'
+import { THEME_IDS, themeVariables } from '../themes'
 import type { Targets } from '../types'
-import { parseNumber } from '../utils'
+import { fmt, parseNumber } from '../utils'
 import Button from './Button'
+import Choices from './Choices'
 import GoalSheet from './GoalSheet'
+import Segmented from './Segmented'
 import Sheet from './Sheet'
 
-// The four target fields, in display order.
-const FIELDS: { key: keyof Targets; label: string; unit: string; color: string }[] = [
-  { key: 'kcal', label: 'Calories', unit: 'kcal', color: 'var(--accent)' },
-  { key: 'protein', label: 'Protein', unit: 'g', color: 'var(--protein)' },
-  { key: 'carbs', label: 'Carbs', unit: 'g', color: 'var(--carbs)' },
-  { key: 'fat', label: 'Fat', unit: 'g', color: 'var(--fat)' },
-  { key: 'fibre', label: 'Fibre', unit: 'g', color: 'var(--fibre)' },
+// The five target fields, in display order.
+const FIELDS: { key: keyof Targets; labelKey: string; unit: string; color: string }[] = [
+  { key: 'kcal', labelKey: 'nutrient.calories', unit: 'kcal', color: 'var(--accent)' },
+  { key: 'protein', labelKey: 'nutrient.protein', unit: 'g', color: 'var(--protein)' },
+  { key: 'carbs', labelKey: 'nutrient.carbs', unit: 'g', color: 'var(--carbs)' },
+  { key: 'fat', labelKey: 'nutrient.fat', unit: 'g', color: 'var(--fat)' },
+  { key: 'fibre', labelKey: 'nutrient.fibre', unit: 'g', color: 'var(--fibre)' },
 ]
 
 interface Props {
+  appearance: Appearance
+  onAppearance: (appearance: Appearance) => void // language or theme was changed
   onEditProfile: () => void // opens the onboarding questions again
 }
 
-export default function SettingsScreen({ onEditProfile }: Props) {
+export default function SettingsScreen({ appearance, onAppearance, onEditProfile }: Props) {
   const profile = useLiveQuery(getProfile)
-  // Kept as text while typing; saved to the database whenever all four are valid numbers.
+  // Kept as text while typing; saved to the database whenever all are valid numbers.
   const [texts, setTexts] = useState<Record<keyof Targets, string> | null>(null)
   const [message, setMessage] = useState('')
+  const [recentsMessage, setRecentsMessage] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
-  const [editingGoal, setEditingGoal] = useState(false) // the target weight sheet
+  const [editingGoal, setEditingGoal] = useState(false) // the target and pace sheet
 
   // Backups
   const lastBackup = useLiveQuery(async () => ({ at: await getLastBackup() }))
@@ -37,8 +45,14 @@ export default function SettingsScreen({ onEditProfile }: Props) {
   const [storageProtected, setStorageProtected] = useState<boolean | null>(null)
 
   async function loadTargets() {
-    const t = await getTargets()
-    setTexts({ kcal: String(t.kcal), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat), fibre: String(t.fibre) })
+    const targets = await getTargets()
+    setTexts({
+      kcal: String(targets.kcal),
+      protein: String(targets.protein),
+      carbs: String(targets.carbs),
+      fat: String(targets.fat),
+      fibre: String(targets.fibre),
+    })
   }
 
   useEffect(() => {
@@ -58,11 +72,17 @@ export default function SettingsScreen({ onEditProfile }: Props) {
     }
   }
 
+  // Applies and saves a new language or theme, and lets the app redraw.
+  async function setAppearance(next: Appearance) {
+    await chooseAppearance(next)
+    onAppearance(next)
+  }
+
   async function handleBackup() {
     try {
-      if (await backUpNow()) setMessage('Backup saved.')
+      if (await backUpNow()) setMessage(t('settings.backupSaved'))
     } catch {
-      setMessage('The backup could not be saved.')
+      setMessage(t('settings.backupFailed'))
     }
   }
 
@@ -83,14 +103,14 @@ export default function SettingsScreen({ onEditProfile }: Props) {
     try {
       if (mode === 'merge') {
         const { added, skipped } = await mergeBackup(pending)
-        setMessage(`Merged: ${added} added, ${skipped} already here.`)
+        setMessage(t('settings.merged', { added: num(added), skipped: num(skipped) }))
       } else {
         await replaceWithBackup(pending)
-        setMessage(`Backup restored: ${pending.entries.length} entries.`)
+        setMessage(t('settings.restored', { count: num(pending.entries.length) }))
       }
       await loadTargets()
     } catch {
-      setMessage('The import failed. Nothing was changed.')
+      setMessage(t('settings.importFailed'))
     }
     setPending(null)
   }
@@ -98,59 +118,83 @@ export default function SettingsScreen({ onEditProfile }: Props) {
   return (
     <>
       <header className="page-head">
-        <h1 className="page-title">Settings</h1>
+        <h1 className="page-title">{t('settings.title')}</h1>
       </header>
 
-      <h2 className="section-title">My profile</h2>
-      <section className="card glass">
+      <h2 className="section-title">{t('settings.appearance')}</h2>
+      <section className="card surface">
+        <div>
+          <div className="label">{t('settings.language')}</div>
+          <Segmented
+            options={LANGUAGES}
+            value={appearance.language}
+            onChange={(language) => setAppearance({ ...appearance, language })}
+            inset
+          />
+        </div>
+      </section>
+      <div className="label">{t('settings.theme')}</div>
+      <Choices
+        // Each theme's swatch is drawn in that theme's own colours.
+        options={THEME_IDS.map((id) => ({
+          value: id,
+          label: t(`theme.${id}`),
+          lead: <span className="swatch" style={themeVariables(id) as React.CSSProperties} />,
+        }))}
+        value={appearance.theme}
+        onChange={(theme) => setAppearance({ ...appearance, theme })}
+      />
+
+      <h2 className="section-title">{t('settings.profile')}</h2>
+      <section className="card surface">
         {profile ? (
           <div className="profile-list">
-            <span className="muted">Goal</span>
-            <b>{GOAL_OPTIONS.find((o) => o.value === profile.goal)?.label}</b>
-            <span className="muted">Sex</span>
-            <b>{profile.sex === 'male' ? 'Male' : 'Female'}</b>
-            <span className="muted">Age</span>
+            <span className="muted">{t('profile.goal')}</span>
+            <b>{goalOptions().find((o) => o.value === profile.goal)?.label}</b>
+            <span className="muted">{t('profile.sex')}</span>
+            <b>{t(`sex.${profile.sex}`)}</b>
+            <span className="muted">{t('profile.age')}</span>
             <b>{profile.age}</b>
-            <span className="muted">Height</span>
+            <span className="muted">{t('profile.height')}</span>
             <b>{profile.heightCm} cm</b>
-            <span className="muted">Weight</span>
-            <b>{profile.weightKg} kg</b>
+            <span className="muted">{t('profile.weight')}</span>
+            <b>{fmt(profile.weightKg)} kg</b>
             {profile.goal !== 'maintain' && (
               <>
-                <span className="muted">Target weight</span>
-                <b>{profile.targetWeightKg !== undefined ? `${profile.targetWeightKg} kg` : 'Not set'}</b>
+                <span className="muted">{t('profile.target')}</span>
+                <b>{profile.targetWeightKg !== undefined ? `${fmt(profile.targetWeightKg)} kg` : t('profile.notSet')}</b>
               </>
             )}
             {profile.pace !== undefined && (
               <>
-                <span className="muted">Pace</span>
-                <b>{profile.pace} kg per week</b>
+                <span className="muted">{t('profile.pace')}</span>
+                <b>{t('profile.paceValue', { pace: num(profile.pace, 2) })}</b>
               </>
             )}
-            <span className="muted">Activity</span>
-            <b>{ACTIVITY_OPTIONS.find((o) => o.value === profile.activity)?.label}</b>
+            <span className="muted">{t('profile.activity')}</span>
+            <b>{activityOptions().find((o) => o.value === profile.activity)?.label}</b>
           </div>
         ) : (
-          <p className="muted">Answer six short questions and get a suggested calorie and macro goal.</p>
+          <p className="muted">{t('settings.profileIntro')}</p>
         )}
         <Button variant="primary" block icon="user" onClick={onEditProfile}>
-          {profile ? 'Edit profile' : 'Set up my profile'}
+          {profile ? t('settings.editProfile') : t('settings.setupProfile')}
         </Button>
         {profile && profile.goal !== 'maintain' && (
           <Button block onClick={() => setEditingGoal(true)}>
-            Change target and pace
+            {t('settings.changeGoal')}
           </Button>
         )}
       </section>
 
-      <h2 className="section-title">Daily targets</h2>
-      <section className="card glass">
+      <h2 className="section-title">{t('settings.targets')}</h2>
+      <section className="card surface">
         {texts &&
           FIELDS.map((f) => (
             <label className="setting-row" key={f.key}>
               <span className="macro-label">
                 <span className="dot" style={{ background: f.color }} />
-                {f.label}
+                {t(f.labelKey)}
               </span>
               <span className="setting-input">
                 <input
@@ -163,27 +207,45 @@ export default function SettingsScreen({ onEditProfile }: Props) {
               </span>
             </label>
           ))}
-        <p className="muted">{DISCLAIMER}</p>
+        <p className="muted">{t('disclaimer')}</p>
       </section>
 
-      <h2 className="section-title">Backup</h2>
-      <section className="card glass">
+      <h2 className="section-title">{t('settings.recents')}</h2>
+      <section className="card surface">
+        <p className="muted">{t('settings.recentsHint')}</p>
+        <Button
+          block
+          icon="trash"
+          onClick={async () => {
+            await clearRecents()
+            setRecentsMessage(t('settings.recentsCleared'))
+          }}
+        >
+          {t('settings.clearRecents')}
+        </Button>
+        {recentsMessage && <p className="note">{recentsMessage}</p>}
+      </section>
+
+      <h2 className="section-title">{t('settings.backup')}</h2>
+      <section className="card surface">
         <div className="profile-list">
-          <span className="muted">Last backup</span>
+          <span className="muted">{t('settings.lastBackup')}</span>
           <b>{lastBackup ? lastBackupText(lastBackup.at, Date.now()) : ''}</b>
-          <span className="muted">Storage</span>
-          <b>{storageProtected === null ? 'checking…' : storageProtected ? 'Protected' : 'Not protected'}</b>
+          <span className="muted">{t('settings.storage')}</span>
+          <b>
+            {storageProtected === null
+              ? t('settings.checking')
+              : storageProtected
+                ? t('settings.protected')
+                : t('settings.notProtected')}
+          </b>
         </div>
-        <p className="muted">
-          {storageProtected === false
-            ? 'Your data lives only on this phone, and iOS may clear it if the app is not used for a long time. Back up regularly, and keep the file in iCloud Drive.'
-            : 'Your data lives only on this phone. Back up now and then, and keep the file in iCloud Drive.'}
-        </p>
+        <p className="muted">{storageProtected === false ? t('settings.backupTextUnprotected') : t('settings.backupText')}</p>
         <Button variant="primary" block icon="share" onClick={handleBackup}>
-          Back up now
+          {t('settings.backUpNow')}
         </Button>
         <Button block onClick={() => fileInput.current?.click()}>
-          Import backup
+          {t('settings.import')}
         </Button>
         <input
           ref={fileInput}
@@ -199,24 +261,30 @@ export default function SettingsScreen({ onEditProfile }: Props) {
       </section>
 
       {pending && (
-        <Sheet title="Import backup" onClose={() => setPending(null)}>
+        <Sheet title={t('settings.import')} onClose={() => setPending(null)}>
           <p className="muted">
-            This backup
-            {pending.exportedAt && ` from ${new Date(pending.exportedAt).toLocaleDateString()}`} holds {pending.entries.length}{' '}
-            entries, {pending.products.length} foods, {pending.mealPreps.length} meal preps, {pending.savedMeals.length} saved
-            meals and {pending.weights.length} weigh-ins.
+            {t('import.summary', {
+              from: pending.exportedAt
+                ? t('import.from', { date: new Date(pending.exportedAt).toLocaleDateString(locale()) })
+                : '',
+              entries: num(pending.entries.length),
+              foods: num(pending.products.length),
+              preps: num(pending.mealPreps.length),
+              meals: num(pending.savedMeals.length),
+              weights: num(pending.weights.length),
+            })}
           </p>
           <div className="sheet-actions">
             <Button variant="primary" block onClick={() => finishImport('merge')}>
-              Merge with what is here
+              {t('import.merge')}
             </Button>
-            <p className="muted">Adds what is missing and skips duplicates. Nothing on this phone is changed.</p>
+            <p className="muted">{t('import.mergeHint')}</p>
             <Button variant="danger" block onClick={() => finishImport('replace')}>
-              Replace everything
+              {t('import.replace')}
             </Button>
-            <p className="muted">Deletes all data on this phone and puts the backup in its place.</p>
+            <p className="muted">{t('import.replaceHint')}</p>
             <Button block onClick={() => setPending(null)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
           </div>
         </Sheet>

@@ -1,6 +1,6 @@
 /* ==========================================================================
-   All component styles. Colours, sizes and animation curves come from
-   theme.css; nothing in this file uses a raw colour for the interface.
+   All component styles. Every colour, font, radius, border and shadow comes
+   from a theme token (see themes.ts), so each rule works in all six themes.
    ========================================================================== */
 
 /* ---------- Base ---------- */
@@ -17,9 +17,10 @@ html {
 body {
   margin: 0;
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-  font-size: var(--font-body);
-  line-height: 1.35;
+  font-family: var(--font-body);
+  font-size: var(--size-body);
+  font-weight: var(--weight-body);
+  line-height: var(--line-height);
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior-y: none;
@@ -62,9 +63,13 @@ button:disabled {
   opacity: 0.4;
 }
 
+b {
+  font-weight: var(--weight-strong);
+}
+
 .muted {
   color: var(--text-2);
-  font-size: var(--font-small);
+  font-size: var(--size-small);
 }
 
 .icon {
@@ -76,7 +81,39 @@ button:disabled {
   flex-shrink: 0;
 }
 
-/* ---------- Background blobs ---------- */
+/* ---------- Typography roles ---------- */
+/* Headings use the theme's heading font ... */
+.page-title,
+.section-title,
+.meal-title,
+.sheet-head h2,
+.status-card h3,
+.streak-title,
+.product-name,
+.period-title,
+.headline {
+  font-family: var(--font-heading);
+  font-weight: var(--weight-heading);
+  text-transform: var(--heading-transform);
+  letter-spacing: var(--heading-spacing);
+  line-height: 1.2;
+}
+
+/* ... and numbers that matter use its number font. */
+.ring-number,
+.energy-value,
+.row-value,
+.tile b,
+.streak-number,
+.result-kcal b,
+.amount-input,
+.big-input input {
+  font-family: var(--font-number);
+  font-weight: var(--weight-number);
+  font-size: var(--size-number);
+}
+
+/* ---------- Background decoration ---------- */
 .blobs {
   position: fixed;
   inset: 0;
@@ -116,7 +153,7 @@ button:disabled {
   background: var(--blob-3);
   bottom: 4%;
   left: -40px;
-  opacity: calc(var(--blob-opacity) * 0.7); /* only a hint of pink */
+  opacity: calc(var(--blob-opacity) * 0.7);
   animation-delay: -17s;
 }
 
@@ -129,21 +166,39 @@ button:disabled {
   }
 }
 
-/* ---------- Glass ---------- */
-.glass {
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  /* inset = the thin bright line along the top edge; the second shadow adds depth */
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 10px 32px var(--glass-shadow);
+/* A striped band at the top of the page (only themes with stripes give it a height). */
+.stripes {
+  height: var(--stripes-height);
+  margin: 0 calc(-1 * var(--space-4)) calc(var(--stripes-height) * 0.7);
+  background: var(--header-stripes);
+}
+
+/* ---------- Surfaces ---------- */
+/* A card-like surface. */
+.surface {
+  background: var(--surface);
+  -webkit-backdrop-filter: var(--card-backdrop);
+  backdrop-filter: var(--card-backdrop);
+  border: var(--card-border);
+  border-top: var(--card-rule);
+  border-bottom: var(--card-rule);
+  box-shadow: var(--card-shadow);
+}
+
+/* A smaller raised surface: secondary buttons, segmented controls, the toast. */
+.chip {
+  background: var(--chip-bg);
+  -webkit-backdrop-filter: var(--card-backdrop);
+  backdrop-filter: var(--card-backdrop);
+  border: var(--chip-border);
+  box-shadow: var(--chip-shadow);
 }
 
 /* ---------- Page layout ---------- */
 .screen {
   max-width: 520px;
   margin: 0 auto;
-  padding: calc(var(--safe-top) + var(--space-5)) var(--space-4) calc(var(--safe-bottom) + 124px);
+  padding: calc(var(--safe-top) + var(--space-5)) var(--space-4) calc(var(--safe-bottom) + 132px);
   animation: screen-in var(--normal) var(--ease);
 }
 
@@ -160,32 +215,36 @@ button:disabled {
   justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-5);
-  min-height: 44px;
+  min-height: var(--control-round);
 }
 
 .page-title {
-  font-size: var(--font-large-title);
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
+  font-size: var(--size-large-title);
+  line-height: 1.15;
   text-align: left;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A long title (a written-out date) is set one step smaller. */
+.page-title.long {
+  font-size: var(--size-title);
 }
 
 .head-actions {
   display: flex;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .section-title {
-  font-size: var(--font-title);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--size-title);
   margin: var(--space-6) var(--space-1) var(--space-3);
 }
 
 .label {
-  font-size: var(--font-small);
-  font-weight: 600;
+  font-size: var(--size-small);
+  font-weight: var(--weight-strong);
   color: var(--text-2);
   margin: var(--space-5) var(--space-1) var(--space-2);
 }
@@ -204,7 +263,12 @@ button:disabled {
   background: var(--fill);
   border-radius: var(--radius-m);
   padding: var(--space-3) var(--space-4);
-  font-size: var(--font-small);
+  font-size: var(--size-small);
+}
+
+.estimate {
+  font-weight: var(--weight-strong);
+  color: var(--accent-text);
 }
 
 .stack {
@@ -213,25 +277,35 @@ button:disabled {
   gap: var(--space-3);
 }
 
+/* The editorial sentence on Today (only shown by themes that want it). */
+.headline {
+  display: var(--headline-display);
+  font-size: var(--size-large-title);
+  line-height: 1.1;
+  margin-bottom: var(--space-4);
+}
+
 /* ---------- Button (see components/Button.tsx) ---------- */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: var(--control);
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-input);
-  font-weight: 650;
-  white-space: nowrap;
+  min-height: var(--control);
+  padding: var(--space-1) var(--space-5);
+  border-radius: var(--button-radius);
+  font-size: var(--size-input);
+  font-weight: var(--weight-strong);
+  text-transform: var(--button-transform);
+  text-align: center;
+  line-height: 1.15;
   flex-shrink: 0;
 }
 
 .btn-small {
-  height: var(--control-small);
-  padding: 0 14px;
-  font-size: var(--font-small);
+  min-height: var(--control-small);
+  padding: var(--space-1) 14px;
+  font-size: var(--size-small);
   gap: 6px;
 }
 
@@ -240,10 +314,11 @@ button:disabled {
   width: 100%;
 }
 
-/* Icon only, perfectly round */
+/* Icon only */
 .btn-round {
-  width: 44px;
-  height: 44px;
+  width: var(--control-round);
+  height: var(--control-round);
+  min-height: 0;
   padding: 0;
 }
 
@@ -256,10 +331,10 @@ button:disabled {
 .btn-stacked {
   flex-direction: column;
   gap: 6px;
-  height: 78px;
-  padding: 0 var(--space-1);
+  min-height: 78px;
+  padding: var(--space-2) var(--space-1);
   border-radius: var(--radius-m);
-  font-size: var(--font-caption);
+  font-size: var(--size-caption);
   flex: 1;
   min-width: 0;
 }
@@ -267,15 +342,16 @@ button:disabled {
 .btn-primary {
   background: var(--primary);
   color: var(--on-primary);
-  box-shadow: inset 0 1px 0 var(--button-shine), 0 8px 22px var(--glass-shadow);
+  border: var(--button-border);
+  box-shadow: var(--button-shadow);
 }
 
-.btn-glass {
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 6px 20px var(--glass-shadow);
+.btn-soft {
+  background: var(--chip-bg);
+  -webkit-backdrop-filter: var(--card-backdrop);
+  backdrop-filter: var(--card-backdrop);
+  border: var(--chip-border);
+  box-shadow: var(--chip-shadow);
 }
 
 .btn-quiet {
@@ -290,7 +366,7 @@ button:disabled {
 .segmented {
   display: flex;
   padding: var(--space-1);
-  border-radius: var(--radius-pill);
+  border-radius: var(--button-radius);
 }
 
 .segmented.inset {
@@ -300,18 +376,18 @@ button:disabled {
 .segmented button {
   flex: 1 1 auto;
   min-width: 0;
-  height: 38px;
+  min-height: 38px;
   padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-small);
-  font-weight: 600;
+  border-radius: var(--button-radius);
+  font-size: var(--size-small);
+  font-weight: var(--weight-strong);
   color: var(--text-2);
+  line-height: 1.1;
 }
 
 .segmented button.active {
   background: var(--primary);
   color: var(--on-primary);
-  box-shadow: 0 3px 10px var(--glass-shadow);
 }
 
 /* ---------- Inputs ---------- */
@@ -319,12 +395,12 @@ button:disabled {
   width: 100%;
   min-width: 0;
   height: var(--control);
-  border: 1.5px solid transparent;
+  border: var(--input-border);
   outline: none;
-  background: var(--fill);
-  border-radius: var(--radius-pill);
+  background: var(--input-bg);
+  border-radius: var(--input-radius);
   padding: 0 var(--space-5);
-  font-size: var(--font-input);
+  font-size: var(--size-input);
   -webkit-appearance: none;
   appearance: none;
   transition: border-color var(--fast), background var(--fast);
@@ -342,22 +418,23 @@ button:disabled {
 /* A field the label scan could not read */
 .input.missing {
   border-color: var(--carbs);
-  background: color-mix(in srgb, var(--carbs) 20%, transparent);
+  background: color-mix(in srgb, var(--carbs) 22%, var(--input-bg));
 }
 
 .input.number {
   text-align: center;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .field > span {
-  font-size: var(--font-small);
+  font-size: var(--size-small);
   color: var(--text-2);
   padding-left: var(--space-2);
 }
@@ -372,6 +449,10 @@ button:disabled {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.field-grid.three .input {
+  padding: 0 var(--space-3);
+}
+
 /* An input with a button or unit next to it */
 .input-row {
   display: flex;
@@ -381,15 +462,15 @@ button:disabled {
 
 /* ---------- Card ---------- */
 .card {
-  border-radius: var(--radius-l);
-  padding: var(--space-5);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
 .card + .card {
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
 }
 
 /* ---------- Row: one item in a list ---------- */
@@ -397,20 +478,35 @@ button:disabled {
   width: 100%;
   min-height: 64px;
   text-align: left;
-  border-radius: var(--radius-m);
+  border-radius: var(--row-radius);
   padding: var(--space-3) var(--space-4);
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
-/* A row inside a card or sheet has no glass of its own */
+.row.surface {
+  border: var(--row-border);
+  border-bottom: var(--row-rule);
+  box-shadow: var(--row-shadow);
+}
+
+/* A row inside a card or sheet has no surface of its own, only a divider. */
 .row.plain {
   min-height: 0;
   padding: var(--space-2) 2px;
   margin-bottom: 0;
-  border-radius: var(--radius-s);
+  border-radius: 0;
+  border-bottom: var(--divider);
+}
+
+.row.plain:last-of-type {
+  border-bottom: none;
+}
+
+.row:disabled {
+  opacity: 0.55;
 }
 
 .row-main {
@@ -420,27 +516,24 @@ button:disabled {
 }
 
 .row-title {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: var(--weight-strong);
+  overflow-wrap: anywhere;
 }
 
 .row-value {
-  font-weight: 700;
   white-space: nowrap;
+}
+
+.row-value .muted {
+  font-family: var(--font-body);
+  font-weight: var(--weight-body);
 }
 
 .row-star {
   color: var(--carbs);
   display: inline-flex;
   vertical-align: -2px;
-  margin-right: 4px;
-}
-
-/* A choice that cannot be picked */
-.row:disabled {
-  opacity: 0.55;
+  margin-right: var(--space-1);
 }
 
 /* A small badge next to a row title, e.g. "Recommended" */
@@ -448,24 +541,18 @@ button:disabled {
   display: inline-block;
   margin-left: var(--space-2);
   padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--button-radius);
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent-text);
-  font-size: var(--font-caption);
-  font-weight: 700;
+  font-size: var(--size-caption);
+  font-weight: var(--weight-strong);
   vertical-align: 1px;
 }
 
-/* A highlighted one-line result, e.g. the estimated date */
-.estimate {
-  font-weight: 700;
-  color: var(--accent-text);
-}
-
-/* A selectable row (onboarding choices) */
+/* A selectable row (onboarding choices, theme list) */
 .row.selected {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1.5px var(--accent), 0 10px 32px var(--glass-shadow);
+  outline: 2.5px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .row-check {
@@ -482,6 +569,36 @@ button:disabled {
 .row.selected .row-check {
   background: var(--accent);
   color: var(--on-accent);
+}
+
+/* A row that can be swiped left to reveal an action behind it. */
+.swipe {
+  position: relative;
+}
+
+.swipe > .row {
+  transition: transform var(--normal) var(--spring);
+}
+
+.swipe.open > .row {
+  transform: translateX(-140px);
+}
+
+.swipe-action {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--fast);
+}
+
+.swipe.open .swipe-action {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* A square picture with rounded corners (product photo or placeholder) */
@@ -507,46 +624,78 @@ button:disabled {
   color: var(--text-2);
 }
 
-/* ---------- Macro tiles: kcal / protein / carbs / fat ---------- */
+/* ---------- Tiles ---------- */
 .tiles {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
+  /* Room for the offset shadow that some themes give their tiles. */
+  padding-bottom: var(--tile-shadow-y);
 }
 
 .tile {
-  background: var(--fill);
-  border-radius: var(--radius-s);
-  padding: var(--space-3) var(--space-1);
+  background: var(--tile-bg, var(--fill));
+  border: var(--tile-border);
+  border-radius: var(--tile-radius);
+  aspect-ratio: var(--tile-aspect);
+  /* An optional inner rim, and an optional offset shadow in a darker shade of the tile itself. */
+  box-shadow: var(--tile-inset), 0 var(--tile-shadow-y) 0 color-mix(in srgb, var(--tile-bg, transparent) 76%, black);
+  padding: var(--space-3) 2px;
   text-align: center;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
-}
-
-.tile b {
-  font-size: var(--font-body);
-  font-weight: 700;
+  min-width: 0;
 }
 
 .tile span {
-  font-size: var(--font-caption);
-  color: var(--text-2);
+  font-size: var(--size-caption);
+  color: var(--tile-label);
+  line-height: 1.1;
+}
+
+.tile.kcal {
+  --tile-bg: var(--tile-kcal-bg);
+  color: var(--tile-kcal-text);
+}
+
+.tile.protein {
+  --tile-bg: var(--tile-protein-bg);
+  color: var(--tile-protein-text);
+}
+
+.tile.carbs {
+  --tile-bg: var(--tile-carbs-bg);
+  color: var(--tile-carbs-text);
+}
+
+.tile.fat {
+  --tile-bg: var(--tile-fat-bg);
+  color: var(--tile-fat-text);
 }
 
 /* ---------- Progress bar ---------- */
 .bar {
-  height: 10px;
-  border-radius: var(--radius-pill);
+  height: var(--bar-height);
+  border-radius: var(--bar-radius);
+  border: var(--bar-border);
   background: var(--fill);
   overflow: hidden;
 }
 
 .bar-fill {
   height: 100%;
-  border-radius: var(--radius-pill);
+  border-radius: var(--bar-radius);
   background: var(--accent);
+  -webkit-mask-image: var(--bar-mask);
+  mask-image: var(--bar-mask);
   transition: width 0.7s var(--ease);
+}
+
+.bar-note,
+.extras {
+  margin-top: var(--space-2);
 }
 
 /* ---------- Sheet (see components/Sheet.tsx) ---------- */
@@ -572,7 +721,7 @@ button:disabled {
   max-width: 520px;
   max-height: calc(100% - var(--safe-top) - var(--space-5));
   overflow-y: auto;
-  background: var(--glass-strong);
+  background: var(--surface-strong);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-bottom: none;
   padding: var(--space-2) var(--space-5) calc(var(--safe-bottom) + var(--space-5));
@@ -589,7 +738,7 @@ button:disabled {
 .sheet-grabber {
   width: 38px;
   height: 5px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--bar-radius);
   background: var(--fill-strong);
   margin: 0 auto var(--space-3);
 }
@@ -603,13 +752,9 @@ button:disabled {
 }
 
 .sheet-head h2 {
-  font-size: var(--font-title);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--size-title);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .sheet-actions {
@@ -619,37 +764,62 @@ button:disabled {
   margin-top: var(--space-5);
 }
 
-/* ---------- Floating tab bar ---------- */
-.tabbar {
+/* ---------- Tab bar with the round add button ---------- */
+.tabbar-wrap {
   position: fixed;
   z-index: 20;
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(var(--safe-bottom) + var(--space-3));
-  width: min(calc(100% - 2 * var(--space-4)), 420px);
+  width: min(calc(100% - 2 * var(--space-4)), 440px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tabbar {
+  flex: 1;
+  min-width: 0;
   display: flex;
   padding: 6px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--tabbar-radius);
+  background: var(--tabbar-bg);
+  -webkit-backdrop-filter: var(--card-backdrop);
+  backdrop-filter: var(--card-backdrop);
+  border: var(--tabbar-border);
+  box-shadow: var(--tabbar-shadow);
 }
 
 .tab {
   flex: 1;
+  min-width: 0;
+  min-height: 46px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 8px 0 7px;
-  border-radius: var(--radius-pill);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-2);
-  min-width: 0;
+  padding: 6px 0;
+  border-radius: var(--tabbar-radius);
+  font-size: var(--size-tab);
+  font-weight: var(--weight-strong);
+  line-height: 1.1;
+  color: var(--tabbar-text);
   white-space: nowrap;
 }
 
+.tab span {
+  display: var(--tab-label-display);
+}
+
 .tab.active {
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--tabbar-active-text);
+  background: var(--tabbar-active-bg);
+}
+
+.btn.add-button {
+  width: var(--control-add);
+  height: var(--control-add);
 }
 
 /* ---------- Toast ---------- */
@@ -661,9 +831,9 @@ button:disabled {
   transform: translateX(-50%);
   max-width: calc(100% - 2 * var(--space-4));
   padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-pill);
-  background: var(--glass-strong);
-  font-weight: 600;
+  border-radius: var(--button-radius);
+  background: var(--surface-strong);
+  font-weight: var(--weight-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -683,6 +853,7 @@ button:disabled {
 
 /* ---------- Today: ring ---------- */
 .ring {
+  display: var(--ring-display);
   position: relative;
   width: 220px;
   height: 220px;
@@ -698,7 +869,7 @@ button:disabled {
 }
 
 .ring-track {
-  stroke: var(--fill);
+  stroke: var(--fill-strong);
 }
 
 .ring-fill {
@@ -718,20 +889,40 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  text-align: center;
 }
 
 .ring-number {
-  font-size: var(--font-display);
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: var(--size-display);
   line-height: 1.05;
 }
 
 .ring-left {
-  margin-top: var(--space-2);
-  font-size: var(--font-small);
-  font-weight: 700;
+  margin-top: var(--space-1);
+  font-size: var(--size-small);
+  font-weight: var(--weight-strong);
   color: var(--accent-text);
+}
+
+/* ---------- Today: energy bar (shown instead of the ring by themes that want it) ---------- */
+.energy {
+  display: var(--energy-display);
+}
+
+.energy-value {
+  font-size: var(--size-display);
+  line-height: 1.2;
+}
+
+.energy .bar {
+  height: calc(var(--bar-height) * 1.75);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.energy-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 /* ---------- Today: macro bars ---------- */
@@ -739,6 +930,7 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: var(--space-2);
   margin-bottom: 7px;
 }
 
@@ -746,13 +938,13 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--bar-radius);
   flex-shrink: 0;
 }
 
@@ -769,27 +961,27 @@ button:disabled {
 }
 
 .meal-title {
-  font-size: var(--font-title);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--size-title);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .meal-total {
   flex: 1;
+  white-space: nowrap;
 }
 
 .meal-copy {
-  margin-bottom: var(--space-2);
-}
-
-/* A small remark under a bar or a row of tiles */
-.bar-note,
-.extras {
-  margin-top: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .banner {
-  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.banner .row-main {
+  flex-basis: 100%;
 }
 
 /* ---------- Add ---------- */
@@ -797,6 +989,10 @@ button:disabled {
   display: flex;
   gap: var(--space-2);
   margin: var(--space-4) 0;
+}
+
+.list-picker {
+  margin: var(--space-6) 0 var(--space-3);
 }
 
 .unit-picker {
@@ -808,10 +1004,6 @@ button:disabled {
   margin-top: var(--space-5);
 }
 
-.list-picker {
-  margin: var(--space-6) 0 var(--space-3);
-}
-
 /* ---------- Product sheet ---------- */
 .product-head {
   display: flex;
@@ -820,8 +1012,8 @@ button:disabled {
 }
 
 .product-name {
-  font-size: var(--font-headline);
-  font-weight: 700;
+  font-size: var(--size-headline);
+  overflow-wrap: anywhere;
 }
 
 .is-favourite {
@@ -831,7 +1023,8 @@ button:disabled {
 .amount-input {
   width: 132px;
   flex: none;
-  font-size: var(--font-title);
+  text-align: center;
+  font-size: var(--size-title);
 }
 
 .quick-row {
@@ -842,6 +1035,7 @@ button:disabled {
 
 .quick-row .btn {
   flex: 1;
+  min-width: 0;
   padding: 0;
 }
 
@@ -859,7 +1053,7 @@ button:disabled {
 }
 
 .result-kcal .muted {
-  font-size: var(--font-caption);
+  font-size: var(--size-caption);
 }
 
 /* ---------- History: bar chart ---------- */
@@ -867,13 +1061,14 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .period-title {
-  font-size: var(--font-headline);
-  font-weight: 700;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-pill);
+  font-size: var(--size-headline);
+  padding: var(--space-2);
+  min-width: 0;
+  text-align: center;
 }
 
 .chart-area {
@@ -896,13 +1091,13 @@ button:disabled {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--bar-radius);
   background: var(--fill);
 }
 
 .chart-bar {
   width: 100%;
-  border-radius: var(--radius-pill);
+  border-radius: var(--bar-radius);
   background: var(--accent);
   transform-origin: bottom;
   animation: bar-grow 0.7s var(--spring) backwards;
@@ -918,14 +1113,13 @@ button:disabled {
   }
 }
 
-/* The target: a soft dashed line across the chart with its value at the right. */
+/* The target: a dashed line across the chart with its value at the right. */
 .chart-target {
   position: absolute;
   left: 0;
   right: 0;
   height: 0;
   border-top: 2px dashed var(--text-2);
-  opacity: 0.6;
   pointer-events: none;
   z-index: 1;
 }
@@ -933,9 +1127,9 @@ button:disabled {
 .chart-target span {
   position: absolute;
   right: 0;
-  bottom: 4px;
-  font-size: 11px;
-  font-weight: 700;
+  bottom: var(--space-1);
+  font-size: var(--size-caption);
+  font-weight: var(--weight-strong);
   color: var(--text);
 }
 
@@ -949,14 +1143,14 @@ button:disabled {
   flex: 1;
   min-width: 0;
   text-align: center;
-  font-size: var(--font-caption);
+  font-size: var(--size-caption);
   color: var(--text-2);
   white-space: nowrap;
 }
 
 .chart-labels .today {
   color: var(--accent-text);
-  font-weight: 700;
+  font-weight: var(--weight-strong);
 }
 
 .chart-note {
@@ -974,34 +1168,37 @@ button:disabled {
   min-width: 64px;
   height: 64px;
   padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
+  border-radius: var(--button-radius);
   display: grid;
   place-items: center;
-  font-size: var(--font-title);
-  font-weight: 800;
+  font-size: var(--size-title);
   color: var(--on-protein);
   background: var(--protein);
+  flex-shrink: 0;
 }
 
 .streak-title {
-  font-weight: 700;
-  font-size: var(--font-headline);
+  font-size: var(--size-headline);
 }
 
-/* ---------- History: weight ---------- */
+/* ---------- History: weight and goal progress ---------- */
 .stat-row {
   display: flex;
   gap: var(--space-2);
 }
 
+/* Stat tiles are plain boxes in every theme. */
 .stat-row .tile {
   flex: 1;
+  aspect-ratio: auto;
+  border-radius: var(--radius-s);
+  box-shadow: none;
   text-align: left;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3);
 }
 
-.stat-row .tile b {
-  font-size: var(--font-headline);
+.stat-row .tile span {
+  color: var(--text-2);
 }
 
 .weight-chart {
@@ -1011,7 +1208,8 @@ button:disabled {
 }
 
 .weight-chart text {
-  font-size: 10px;
+  font-family: var(--font-number);
+  font-size: 11px; /* in the units of the drawing, not of the page */
   fill: var(--text-2);
 }
 
@@ -1048,7 +1246,7 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-3);
-  font-size: var(--font-caption);
+  font-size: var(--size-caption);
   color: var(--text-2);
 }
 
@@ -1083,16 +1281,18 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .setting-input .input {
-  width: 108px;
+  width: 104px;
+  padding: 0 var(--space-3);
   text-align: right;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .setting-input .muted {
-  width: 30px;
+  width: 32px;
 }
 
 .profile-list {
@@ -1103,6 +1303,17 @@ button:disabled {
 
 .profile-list b {
   text-align: right;
+}
+
+/* A dot in a theme's own colours, in the theme list. */
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 2px var(--text);
 }
 
 /* ---------- Full-screen overlays (label scanner) ---------- */
@@ -1131,7 +1342,7 @@ button:disabled {
 }
 
 .status-card h3 {
-  font-size: var(--font-headline);
+  font-size: var(--size-headline);
 }
 
 .status-card .bar,
@@ -1143,7 +1354,7 @@ button:disabled {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  border: 5px solid var(--fill);
+  border: 5px solid var(--fill-strong);
   border-top-color: var(--accent);
   animation: spin 0.9s linear infinite;
 }
@@ -1245,7 +1456,7 @@ button:disabled {
   object-fit: cover;
 }
 
-/* The frame: a clear window in a dimmed picture, with a bright rounded outline. */
+/* The frame: a clear window in a dimmed picture, with a bright outline. */
 .scanner-frame {
   position: absolute;
   left: 50%;
@@ -1266,7 +1477,7 @@ button:disabled {
   right: 14px;
   top: 12%;
   height: 3px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--bar-radius);
   background: var(--accent);
   box-shadow: 0 0 12px var(--accent);
   animation: sweep 2.2s ease-in-out infinite alternate;
@@ -1284,7 +1495,7 @@ button:disabled {
   right: var(--space-5);
   top: calc(42% + 112px);
   text-align: center;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   text-shadow: 0 1px 8px var(--camera-shadow);
 }
 
@@ -1311,7 +1522,7 @@ button:disabled {
   display: flex;
   gap: var(--space-2);
   padding: 6px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--button-radius);
 }
 
 .scanner-manual input {
@@ -1321,7 +1532,7 @@ button:disabled {
   border: none;
   outline: none;
   padding: 0 var(--space-4);
-  font-size: var(--font-input);
+  font-size: var(--size-input);
 }
 
 .scanner-manual input::placeholder {
@@ -1343,7 +1554,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--control-round);
 }
 
 /* The progress indicator: one short bar per step */
@@ -1356,7 +1567,7 @@ button:disabled {
 .steps i {
   flex: 1;
   height: 5px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--bar-radius);
   background: var(--fill-strong);
   transition: background var(--normal);
 }
@@ -1381,8 +1592,8 @@ button:disabled {
   }
 }
 
-.onboarding-step .muted {
-  font-size: var(--font-body);
+.onboarding-step > .muted {
+  font-size: var(--size-body);
 }
 
 .big-input {
@@ -1391,24 +1602,22 @@ button:disabled {
   justify-content: center;
   gap: var(--space-3);
   padding: var(--space-6) var(--space-5);
-  border-radius: var(--radius-l);
+  border-radius: var(--card-radius);
 }
 
 .big-input input {
-  width: 150px;
+  width: 160px;
   background: none;
   border: none;
   outline: none;
   text-align: center;
-  font-size: 56px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: calc(var(--size-display) * 1.15);
   caret-color: var(--accent);
 }
 
 .big-input span {
-  font-size: var(--font-title);
-  font-weight: 600;
+  font-size: var(--size-title);
+  font-weight: var(--weight-strong);
   color: var(--text-2);
 }
 
@@ -1417,6 +1626,82 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* The two language buttons are extra large. */
+.language-buttons .btn {
+  min-height: 84px;
+  font-size: var(--size-title);
+}
+
+/* ---------- Theme gallery ---------- */
+/* A row of previews you swipe through; each one snaps to the middle. */
+.gallery {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0 calc(-1 * var(--space-4));
+  padding: var(--space-1) 11% var(--space-2);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gallery::-webkit-scrollbar {
+  display: none;
+}
+
+.gallery-item {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+}
+
+/* A small Today screen in one theme. It gets that theme's tokens as inline CSS variables,
+   so everything inside it is drawn in that theme. */
+.theme-preview {
+  height: 50dvh;
+  min-height: 330px;
+  overflow: hidden;
+  padding: var(--space-3);
+  border-radius: var(--space-6);
+  outline: 2px solid var(--text-2);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--size-body);
+  font-weight: var(--weight-body);
+  line-height: var(--line-height);
+  pointer-events: none;
+}
+
+/* Shrinks the contents, so a good part of the screen fits. */
+.theme-preview > div {
+  zoom: 0.62;
+}
+
+.gallery-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.gallery-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--bar-radius);
+  background: var(--fill-strong);
+}
+
+.gallery-dots i.active {
+  background: var(--accent);
+}
+
+.gallery-name {
+  text-align: center;
+  font-family: var(--font-heading);
+  font-weight: var(--weight-heading);
+  text-transform: var(--heading-transform);
+  font-size: var(--size-title);
 }
 
 /* People who turned on "Reduce Motion" get no animations. */

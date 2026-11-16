@@ -1,6 +1,7 @@
 import type { PaceChoice } from '../calculator'
 import { formatDate } from '../utils'
 import Choices from './Choices'
+import { t, num } from '../i18n'
 
 interface Props {
   choices: PaceChoice[] // from paceChoices() in calculator.ts
@@ -16,13 +17,13 @@ export default function PacePicker({ choices, value, onChange, targetKg }: Props
   const options = choices.map((choice) => ({
     value: choice.value,
     label: choice.label,
-    tag: choice.recommended ? 'Recommended' : undefined,
+    tag: choice.recommended ? t('pace.recommended') : undefined,
     description: choice.available
-      ? `${choice.value} kg per week · ${choice.kcal} kcal per day`
-      : `${choice.value} kg per week`,
+      ? t('pace.line', { pace: num(choice.value, 2), kcal: num(choice.kcal) })
+      : t('pace.lineShort', { pace: num(choice.value, 2) }),
     detail: choice.available
       ? choice.date && targetKg !== undefined
-        ? `Reach ${targetKg} kg around ${formatDate(choice.date)}`
+        ? t('pace.reach', { target: num(targetKg, 1), date: formatDate(choice.date) })
         : undefined
       : choice.reason,
     disabled: !choice.available,

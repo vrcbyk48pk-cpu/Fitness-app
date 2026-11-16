@@ -10,6 +10,7 @@ import MacroTiles from './MacroTiles'
 import MealPrepEditor from './MealPrepEditor'
 import ProductSheet from './ProductSheet'
 import Sheet from './Sheet'
+import { t, num } from '../i18n'
 
 interface Props {
   date: string // the day that logging goes to
@@ -39,33 +40,32 @@ export default function MealPrepScreen({ date, meal, onLogged }: Props) {
   return (
     <>
       <header className="page-head">
-        <h1 className="page-title">Meal prep</h1>
-        <Button variant="primary" layout="round" icon="plus" onClick={() => setEditing('new')} aria-label="New meal prep" />
+        <h1 className="page-title">{t('prep.title')}</h1>
+        <Button variant="primary" layout="round" icon="plus" onClick={() => setEditing('new')} aria-label={t('prep.new')} />
       </header>
 
       {preps.length === 0 && (
-        <section className="card glass">
+        <section className="card surface">
           <p className="muted">
-            Cook once, log all week. Add the ingredients of a dish, weigh the finished pot, and the app works out the
-            nutrition per 100 g and per portion.
+            {t('prep.intro')}
           </p>
           <Button variant="primary" block icon="plus" onClick={() => setEditing('new')}>
-            New meal prep
+            {t('prep.new')}
           </Button>
         </section>
       )}
 
       {preps.map((prep) => (
-        <button className="row glass" key={prep.id} onClick={() => setOpen(prep)}>
+        <button className="row surface" key={prep.id} onClick={() => setOpen(prep)}>
           <div className="row-main">
             <div className="row-title">{prep.name}</div>
             <div className="muted">
-              {Math.round(per100g(prep).kcal)} kcal per 100 g
-              {prep.portions && ` · ${fmt(prep.portions)} portions of ${fmt(portionGrams(prep)!)} g`}
+              {t('prep.per100', { kcal: num(per100g(prep).kcal) })}
+              {prep.portions && t('prep.portionsOf', { portions: fmt(prep.portions), grams: fmt(portionGrams(prep)!) })}
             </div>
           </div>
           <div className="row-value">
-            {Math.round((perPortion(prep) ?? per100g(prep)).kcal)} <span className="muted">kcal</span>
+            {num((perPortion(prep) ?? per100g(prep)).kcal)} <span className="muted">kcal</span>
           </div>
         </button>
       ))}
@@ -74,18 +74,16 @@ export default function MealPrepScreen({ date, meal, onLogged }: Props) {
         <Sheet title={open.name} onClose={() => setOpen(null)}>
           {open.portions && (
             <>
-              <div className="label">Per portion ({fmt(portionGrams(open)!)} g)</div>
+              <div className="label">{t('prep.perPortion', { grams: fmt(portionGrams(open)!) })}</div>
               <MacroTiles {...perPortion(open)!} />
               <ExtrasLine {...perPortion(open)!} />
             </>
           )}
-          <div className="label">Per 100 g</div>
+          <div className="label">{t('common.per100g')}</div>
           <MacroTiles {...per100g(open)} />
           <ExtrasLine {...per100g(open)} />
 
-          <div className="label">
-            Ingredients · {fmt(open.cookedWeight)} g cooked
-          </div>
+          <div className="label">{t('prep.ingredientsCooked', { grams: fmt(open.cookedWeight) })}</div>
           {open.ingredients.map((ingredient, i) => (
             <div className="row plain" key={i}>
               <div className="row-main">
@@ -97,7 +95,7 @@ export default function MealPrepScreen({ date, meal, onLogged }: Props) {
 
           <div className="sheet-actions">
             <Button variant="primary" block icon="plus" onClick={() => log(open)}>
-              Log it
+              {t('prep.logIt')}
             </Button>
             <Button
               block
@@ -107,7 +105,7 @@ export default function MealPrepScreen({ date, meal, onLogged }: Props) {
                 setOpen(null)
               }}
             >
-              Edit
+              {t('prep.editBtn')}
             </Button>
             <Button
               block
@@ -117,7 +115,7 @@ export default function MealPrepScreen({ date, meal, onLogged }: Props) {
                 setOpen(null)
               }}
             >
-              Duplicate
+              {t('prep.duplicate')}
             </Button>
             <Button
               variant="danger"
@@ -128,7 +126,7 @@ export default function MealPrepScreen({ date, meal, onLogged }: Props) {
                 setOpen(null)
               }}
             >
-              Delete
+              {t('prep.delete')}
             </Button>
           </div>
         </Sheet>

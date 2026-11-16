@@ -9,12 +9,14 @@ import GoalProgress from './GoalProgress'
 import MacroTiles from './MacroTiles'
 import Segmented from './Segmented'
 import WeightCard from './WeightCard'
+import { t, tn, num, locale } from '../i18n'
 
 type Mode = 'week' | 'month'
 
-const MODES: { value: Mode; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
+// A function, so the labels are in the language that is active when the screen is drawn.
+const modes = (): { value: Mode; label: string }[] => [
+  { value: 'week', label: t('history.week') },
+  { value: 'month', label: t('history.month') },
 ]
 
 interface Props {
@@ -51,19 +53,19 @@ export default function HistoryScreen({ onOpenDay }: Props) {
   const title =
     mode === 'week'
       ? `${shortDate(from)} – ${shortDate(to)}`
-      : keyToDate(from).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+      : keyToDate(from).toLocaleDateString(locale(), { month: 'long', year: 'numeric' })
 
   return (
     <>
       <header className="page-head">
-        <h1 className="page-title">History</h1>
+        <h1 className="page-title">{t('history.title')}</h1>
       </header>
 
-      <Segmented options={MODES} value={mode} onChange={setMode} />
+      <Segmented options={modes()} value={mode} onChange={setMode} />
 
-      <section className="card glass" style={{ marginTop: 'var(--space-3)' }}>
+      <section className="card surface" style={{ marginTop: 'var(--space-3)' }}>
         <div className="period-nav">
-          <Button layout="round" size="small" icon="back" onClick={() => setAnchor(shiftDay(from, -1))} aria-label="Previous period" />
+          <Button layout="round" size="small" icon="back" onClick={() => setAnchor(shiftDay(from, -1))} aria-label={t('history.prev')} />
           <button className="period-title" onClick={() => setAnchor(todayKey())}>
             {title}
           </button>
@@ -73,7 +75,7 @@ export default function HistoryScreen({ onOpenDay }: Props) {
             icon="forward"
             onClick={() => setAnchor(shiftDay(to, 1))}
             disabled={to >= todayKey()}
-            aria-label="Next period"
+            aria-label={t('history.next')}
           />
         </div>
 
@@ -81,7 +83,7 @@ export default function HistoryScreen({ onOpenDay }: Props) {
         <BarChart key={from + mode} days={days} kcalByDay={kcalByDay} target={targets.kcal} onSelect={onOpenDay} />
 
         <div>
-          <div className="label">Daily average</div>
+          <div className="label">{t('history.dailyAverage')}</div>
           <MacroTiles
             kcal={average(sum.kcal)}
             protein={average(sum.protein)}
@@ -90,18 +92,18 @@ export default function HistoryScreen({ onOpenDay }: Props) {
           />
           <p className="muted chart-note">
             {logged === 0
-              ? 'Nothing logged in this period.'
-              : `Over ${logged} logged ${logged === 1 ? 'day' : 'days'}. Tap a bar to open that day.`}
+              ? t('history.nothing')
+              : tn('history.over', logged)}
           </p>
         </div>
       </section>
 
-      <section className="card glass streak">
-        <div className="streak-number">{streak}</div>
+      <section className="card surface streak">
+        <div className="streak-number">{num(streak)}</div>
         <div>
-          <div className="streak-title">Protein streak</div>
+          <div className="streak-title">{t('history.streak')}</div>
           <div className="muted">
-            {streak === 1 ? 'day' : 'days'} in a row at {fmt(targets.protein)} g or more
+            {tn('history.streakText', streak, { target: fmt(targets.protein) })}
           </div>
         </div>
       </section>
@@ -114,5 +116,5 @@ export default function HistoryScreen({ onOpenDay }: Props) {
 
 // e.g. "9 Nov"
 function shortDate(key: string): string {
-  return keyToDate(key).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return keyToDate(key).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })
 }

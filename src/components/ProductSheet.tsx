@@ -10,6 +10,7 @@ import MacroTiles from './MacroTiles'
 import MealPicker from './MealPicker'
 import Segmented from './Segmented'
 import Sheet from './Sheet'
+import { t, tn, inputNumber } from '../i18n'
 
 interface Props {
   product: Product
@@ -21,9 +22,9 @@ interface Props {
 
 type Unit = 'portions' | 'grams'
 
-const UNITS: { value: Unit; label: string }[] = [
-  { value: 'portions', label: 'Portions' },
-  { value: 'grams', label: 'Grams' },
+const units = (): { value: Unit; label: string }[] => [
+  { value: 'portions', label: t('product.portions') },
+  { value: 'grams', label: t('common.gramsLabel') },
 ]
 
 const QUICK: Record<Unit, number[]> = {
@@ -37,7 +38,7 @@ export default function ProductSheet({ product, date, meal: initialMeal, onClose
   const portionGrams = product.portionGrams
   const [meal, setMeal] = useState(initialMeal)
   const [unit, setUnit] = useState<Unit>(portionGrams ? 'portions' : 'grams')
-  const [amountText, setAmountText] = useState(portionGrams ? '1' : fmt(product.lastGrams))
+  const [amountText, setAmountText] = useState(portionGrams ? '1' : inputNumber(product.lastGrams))
   // Read the favourite flag live from the database so the star updates when tapped.
   const favourite = useLiveQuery(() => db.products.get(product.id), [product.id])?.favourite ?? product.favourite
 
@@ -48,17 +49,17 @@ export default function ProductSheet({ product, date, meal: initialMeal, onClose
 
   function switchUnit(next: Unit) {
     setUnit(next)
-    setAmountText(next === 'portions' ? '1' : fmt(portionGrams ?? product.lastGrams))
+    setAmountText(next === 'portions' ? '1' : inputNumber(portionGrams ?? product.lastGrams))
   }
 
   async function add() {
     if (!valid) return
     await addEntry(product, grams, date, meal, unit === 'portions' ? amount : undefined)
-    onAdded(`Added ${product.name}`)
+    onAdded(t('product.added', { name: product.name }))
   }
 
   return (
-    <Sheet title="Add food" onClose={onClose}>
+    <Sheet title={t('add.title')} onClose={onClose}>
       <div className="product-head">
         {product.imageUrl ? (
           <img className="thumb large" src={product.imageUrl} alt="" />
@@ -70,25 +71,25 @@ export default function ProductSheet({ product, date, meal: initialMeal, onClose
         <div className="row-main">
           <div className="product-name">{product.name}</div>
           {product.brand && <div className="muted">{product.brand}</div>}
-          {product.source === 'mealprep' && <div className="muted">Meal prep</div>}
+          {product.source === 'mealprep' && <div className="muted">{t('picker.mealPrep')}</div>}
         </div>
         <Button
           layout="round"
           icon={favourite ? 'starFilled' : 'star'}
           className={favourite ? 'is-favourite' : ''}
           onClick={() => setFavourite(product.id, !favourite)}
-          aria-label={favourite ? 'Remove from favourites' : 'Add to favourites'}
+          aria-label={favourite ? t('product.unfavourite') : t('product.favourite')}
         />
       </div>
 
-      <div className="label">Per 100 g</div>
+      <div className="label">{t('common.per100g')}</div>
       <MacroTiles {...product} />
       <ExtrasLine {...product} />
 
-      <div className="label">Amount</div>
+      <div className="label">{t('common.amount')}</div>
       {portionGrams && (
         <div className="unit-picker">
-          <Segmented options={UNITS} value={unit} onChange={switchUnit} inset />
+          <Segmented options={units()} value={unit} onChange={switchUnit} inset />
         </div>
       )}
       <div className="input-row">
@@ -98,30 +99,30 @@ export default function ProductSheet({ product, date, meal: initialMeal, onClose
           value={amountText}
           onChange={(e) => setAmountText(e.target.value)}
           onFocus={(e) => e.target.select()}
-          aria-label={unit === 'portions' ? 'Portions' : 'Grams'}
+          aria-label={unit === 'portions' ? t('product.portions') : t('common.gramsLabel')}
         />
         <span className="muted">
-          {unit === 'portions' ? `${amount === 1 ? 'portion' : 'portions'} · ${fmt(grams)} g` : 'grams'}
+          {unit === 'portions' ? tn('product.portionGrams', amount ?? 0, { grams: fmt(grams) }) : t('common.grams')}
         </span>
       </div>
       <div className="quick-row">
         {QUICK[unit].map((q) => (
           <Button key={q} size="small" variant={amount === q ? 'primary' : 'quiet'} onClick={() => setAmountText(String(q))}>
-            {unit === 'portions' ? q : `${q} g`}
+            {unit === 'portions' ? fmt(q) : `${q} g`}
           </Button>
         ))}
       </div>
 
-      <div className="label">Meal</div>
+      <div className="label">{t('common.meal')}</div>
       <MealPicker meal={meal} setMeal={setMeal} inset />
 
-      <div className="label">This amount</div>
+      <div className="label">{t('common.thisAmount')}</div>
       <MacroTiles {...nutrientsFor(product, grams)} />
       <ExtrasLine {...nutrientsFor(product, grams)} />
 
       <div className="sheet-actions">
         <Button variant="primary" block onClick={add} disabled={!valid}>
-          Add to {formatDay(date).toLowerCase()}
+          {t('product.addTo', { day: formatDay(date).toLowerCase() })}
         </Button>
       </div>
     </Sheet>

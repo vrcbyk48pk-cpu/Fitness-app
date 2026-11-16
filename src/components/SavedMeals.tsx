@@ -4,20 +4,21 @@ import { db, deleteSavedMeal, logSavedMeal, saveMeal } from '../db'
 import type { Entry, Meal, SavedMeal } from '../types'
 import { totalNutrients } from '../mealPrep'
 import type { Nutrients, SavedMealItem } from '../types'
-import { fmt, MEAL_LABELS } from '../utils'
+import { fmt, mealLabel } from '../utils'
 import Button from './Button'
 import Sheet from './Sheet'
+import { t, tn, num } from '../i18n'
 
 // Combined calories, protein and fibre, e.g. "550 kcal · 40 g protein · 11.5 g fibre".
 function summary(total: Nutrients): string {
-  const fibre = total.fibre === undefined ? '' : ` · ${fmt(total.fibre)} g fibre`
-  return `${Math.round(total.kcal)} kcal · ${fmt(total.protein)} g protein${fibre}`
+  const fibre = total.fibre === undefined ? '' : t('saved.fibre', { fibre: fmt(total.fibre) })
+  return t('saved.summary', { kcal: num(total.kcal), protein: fmt(total.protein) }) + fibre
 }
 
 // "1 portion · 350 g" or "100 g"
 function amount(item: SavedMealItem): string {
   if (item.portions === undefined) return `${fmt(item.grams)} g`
-  return `${fmt(item.portions)} ${item.portions === 1 ? 'portion' : 'portions'} · ${fmt(item.grams)} g`
+  return `${tn('amount.portions', item.portions)} · ${fmt(item.grams)} g`
 }
 
 // ---------- The list of saved meals on the Add screen ----------
@@ -34,21 +35,21 @@ export function SavedMealList({ date, meal, onLogged }: ListProps) {
 
   async function log(saved: SavedMeal) {
     await logSavedMeal(saved, date, meal)
-    onLogged(`Added ${saved.name} to ${MEAL_LABELS[meal].toLowerCase()}`)
+    onLogged(t('saved.addedTo', { name: saved.name, meal: mealLabel(meal).toLowerCase() }))
   }
 
   return (
     <>
       {savedMeals.length === 0 && (
-        <p className="empty">No saved meals yet. On the Today screen, tap “Save” next to a meal to keep it here.</p>
+        <p className="empty">{t('saved.empty')}</p>
       )}
       {savedMeals.map((saved) => (
-        <div className="row glass" key={saved.id}>
+        <div className="row surface" key={saved.id}>
           <button className="row-main" onClick={() => setOpen(saved)}>
             <div className="row-title">{saved.name}</div>
             <div className="muted">{summary(totalNutrients(saved.items))}</div>
           </button>
-          <Button variant="primary" size="small" layout="round" icon="plus" onClick={() => log(saved)} aria-label={`Add ${saved.name}`} />
+          <Button variant="primary" size="small" layout="round" icon="plus" onClick={() => log(saved)} aria-label={t('saved.add', { name: saved.name })} />
         </div>
       ))}
 
@@ -61,7 +62,7 @@ export function SavedMealList({ date, meal, onLogged }: ListProps) {
                 <div className="muted">{amount(item)}</div>
               </div>
               <div className="row-value">
-                {Math.round(item.kcal)} <span className="muted">kcal</span>
+                {num(item.kcal)} <span className="muted">kcal</span>
               </div>
             </div>
           ))}
@@ -74,7 +75,7 @@ export function SavedMealList({ date, meal, onLogged }: ListProps) {
                 setOpen(null)
               }}
             >
-              Add to {MEAL_LABELS[meal].toLowerCase()}
+              {t('today.addTo', { meal: mealLabel(meal).toLowerCase() })}
             </Button>
             <Button
               variant="danger"
@@ -84,7 +85,7 @@ export function SavedMealList({ date, meal, onLogged }: ListProps) {
                 setOpen(null)
               }}
             >
-              Delete saved meal
+              {t('saved.delete')}
             </Button>
           </div>
         </Sheet>
@@ -109,22 +110,21 @@ export function SaveMealSheet({ entries, defaultName, onClose, onSaved }: SavePr
     e.preventDefault()
     if (!name.trim()) return
     await saveMeal(name.trim(), entries)
-    onSaved(`Saved “${name.trim()}”`)
+    onSaved(t('saved.saved', { name: name.trim() }))
   }
 
   return (
-    <Sheet title="Save as meal" onClose={onClose}>
+    <Sheet title={t('saved.saveAs')} onClose={onClose}>
       <form className="stack" onSubmit={save}>
         <label className="field">
-          <span>Name</span>
+          <span>{t('common.name')}</span>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} onFocus={(e) => e.target.select()} />
         </label>
         <p className="muted">
-          {entries.length} {entries.length === 1 ? 'food' : 'foods'} · {summary(totalNutrients(entries))}. You can log
-          it again in one tap from Add → Meals.
+          {tn('saved.info', entries.length, { summary: summary(totalNutrients(entries)) })}
         </p>
         <Button variant="primary" block type="submit" disabled={!name.trim()}>
-          Save meal
+          {t('saved.saveMeal')}
         </Button>
       </form>
     </Sheet>

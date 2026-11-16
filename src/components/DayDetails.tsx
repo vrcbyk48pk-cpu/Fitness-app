@@ -1,6 +1,7 @@
 import type { Entry, Extra, Targets } from '../types'
 import { fmt, sumExtra, sumMacros } from '../utils'
 import Sheet from './Sheet'
+import { t, num } from '../i18n'
 
 interface Props {
   entries: Entry[]
@@ -15,26 +16,25 @@ export default function DayDetails({ entries, targets, onClose }: Props) {
   // An extra value with a remark about foods that have no data for it.
   function extra(key: Extra, decimals = 1): { value: string; note?: string } {
     const { total: sum, unknown } = sumExtra(entries, key)
-    if (entries.length > 0 && unknown === entries.length) return { value: 'unknown' }
-    const rounded = Math.round(sum * 10 ** decimals) / 10 ** decimals
+    if (entries.length > 0 && unknown === entries.length) return { value: t('details.unknown') }
     return {
-      value: `${rounded} g`,
-      note: unknown > 0 ? `not known for ${unknown} of ${entries.length} foods` : undefined,
+      value: `${num(sum, decimals)} g`,
+      note: unknown > 0 ? t('details.notKnown', { unknown, total: entries.length }) : undefined,
     }
   }
 
   const rows: { label: string; value: string; note?: string }[] = [
-    { label: 'Calories', value: `${Math.round(total.kcal)} / ${Math.round(targets.kcal)} kcal` },
-    { label: 'Protein', value: `${fmt(total.protein)} / ${fmt(targets.protein)} g` },
-    { label: 'Carbs', value: `${fmt(total.carbs)} / ${fmt(targets.carbs)} g` },
-    { label: 'of which sugar', ...extra('sugar') },
-    { label: 'Fat', value: `${fmt(total.fat)} / ${fmt(targets.fat)} g` },
-    { label: 'Fibre', ...extra('fibre'), value: `${extra('fibre').value.replace(' g', '')} / ${fmt(targets.fibre)} g` },
-    { label: 'Salt', ...extra('salt', 2) },
+    { label: t('nutrient.calories'), value: `${num(total.kcal)} / ${num(targets.kcal)} kcal` },
+    { label: t('nutrient.protein'), value: `${fmt(total.protein)} / ${fmt(targets.protein)} g` },
+    { label: t('nutrient.carbs'), value: `${fmt(total.carbs)} / ${fmt(targets.carbs)} g` },
+    { label: t('nutrient.ofWhichSugar'), ...extra('sugar') },
+    { label: t('nutrient.fat'), value: `${fmt(total.fat)} / ${fmt(targets.fat)} g` },
+    { label: t('nutrient.fibre'), ...extra('fibre'), value: `${extra('fibre').value.replace(' g', '')} / ${fmt(targets.fibre)} g` },
+    { label: t('nutrient.salt'), ...extra('salt', 2) },
   ]
 
   return (
-    <Sheet title="Day details" onClose={onClose}>
+    <Sheet title={t('today.dayDetails')} onClose={onClose}>
       {rows.map((row) => (
         <div className="row plain" key={row.label}>
           <div className="row-main">
@@ -45,8 +45,7 @@ export default function DayDetails({ entries, targets, onClose }: Props) {
         </div>
       ))}
       <p className="muted extras">
-        Foods logged before fibre, sugar and salt were tracked, or without that information, count as unknown rather
-        than zero.
+        {t('details.note')}
       </p>
     </Sheet>
   )

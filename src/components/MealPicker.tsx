@@ -1,5 +1,5 @@
 import type { Meal } from '../types'
-import { MEAL_LABELS, MEALS } from '../utils'
+import { mealLabel, MEALS } from '../utils'
 import Segmented from './Segmented'
 
 interface Props {
@@ -8,9 +8,8 @@ interface Props {
   inset?: boolean
 }
 
-const OPTIONS = MEALS.map((meal) => ({ value: meal, label: MEAL_LABELS[meal] }))
-
 // Choose Breakfast, Lunch, Dinner or Snacks.
 export default function MealPicker({ meal, setMeal, inset }: Props) {
-  return <Segmented options={OPTIONS} value={meal} onChange={setMeal} inset={inset} />
+  const options = MEALS.map((m) => ({ value: m, label: mealLabel(m) }))
+  return <Segmented options={options} value={meal} onChange={setMeal} inset={inset} />
 }

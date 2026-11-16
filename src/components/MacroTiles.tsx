@@ -1,25 +1,27 @@
+import { num, t } from '../i18n'
 import type { Macros } from '../types'
 import { fmt } from '../utils'
 
-// Four small tiles: kcal, protein, carbs, fat.
+// Four small tiles: kcal, protein, carbs, fat. Their colours come from the theme
+// (the "kcal", "protein", "carbs" and "fat" classes in styles.css).
 export default function MacroTiles({ kcal, protein, carbs, fat }: Macros) {
   return (
     <div className="tiles">
-      <div className="tile" style={{ color: 'var(--accent-text)' }}>
-        <b>{Math.round(kcal)}</b>
+      <div className="tile kcal">
+        <b>{num(kcal)}</b>
         <span>kcal</span>
       </div>
-      <div className="tile" style={{ color: 'var(--protein-text)' }}>
+      <div className="tile protein">
         <b>{fmt(protein)} g</b>
-        <span>protein</span>
+        <span>{t('tile.protein')}</span>
       </div>
-      <div className="tile" style={{ color: 'var(--carbs-text)' }}>
+      <div className="tile carbs">
         <b>{fmt(carbs)} g</b>
-        <span>carbs</span>
+        <span>{t('tile.carbs')}</span>
       </div>
-      <div className="tile" style={{ color: 'var(--fat-text)' }}>
+      <div className="tile fat">
         <b>{fmt(fat)} g</b>
-        <span>fat</span>
+        <span>{t('tile.fat')}</span>
       </div>
     </div>
   )

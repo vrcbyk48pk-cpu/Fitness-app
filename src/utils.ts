@@ -1,3 +1,4 @@
+import { locale, num, t } from './i18n'
 import type { Extra, Macros, Meal, Nutrients } from './types'
 
 // Turns a Date into "YYYY-MM-DD" using the phone's local time zone.
@@ -24,15 +25,11 @@ export function shiftDay(key: string, days: number): string {
   return dateKey(date)
 }
 
-// "Today", "Yesterday" or e.g. "Sat 14 Nov".
+// "Today", "Yesterday", or the date written out: "Monday 16 November" / "maandag 16 november".
 export function formatDay(key: string): string {
-  if (key === todayKey()) return 'Today'
-  if (key === shiftDay(todayKey(), -1)) return 'Yesterday'
-  return keyToDate(key).toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  })
+  if (key === todayKey()) return t('day.today')
+  if (key === shiftDay(todayKey(), -1)) return t('day.yesterday')
+  return keyToDate(key).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 export const EXTRAS: Extra[] = ['fibre', 'sugar', 'salt']
@@ -90,20 +87,18 @@ export function parseNumber(text: string): number | null {
   return Number.isFinite(value) && value >= 0 ? value : null
 }
 
-// Shows at most one decimal: 12 -> "12", 12.34 -> "12.3".
+// Shows at most one decimal, the way the language writes it: 12.34 -> "12.3" or "12,3".
 export function fmt(value: number): string {
-  return String(Math.round(value * 10) / 10)
+  return num(value, 1)
 }
 
 // ---------- Meals ----------
 
 export const MEALS: Meal[] = ['breakfast', 'lunch', 'dinner', 'snacks']
 
-export const MEAL_LABELS: Record<Meal, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snacks: 'Snacks',
+// The name of a meal in the current language.
+export function mealLabel(meal: Meal): string {
+  return t(`meal.${meal}`)
 }
 
 // Guesses the meal from the time of day.
@@ -137,7 +132,7 @@ export function dayList(from: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => shiftDay(from, i))
 }
 
-// e.g. "25 January 2027"
+// e.g. "25 January 2027" / "25 januari 2027"
 export function formatDate(date: Date): string {
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+  return date.toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' })
 }

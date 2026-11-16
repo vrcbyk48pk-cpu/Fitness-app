@@ -1,4 +1,5 @@
 import { keyToDate, todayKey } from '../utils'
+import { num, locale } from '../i18n'
 
 interface Props {
   days: string[] // the day keys to show, in order
@@ -18,7 +19,7 @@ export default function BarChart({ days, kcalByDay, target, onSelect }: Props) {
 
   function label(day: string): string {
     const date = keyToDate(day)
-    if (isWeek) return date.toLocaleDateString(undefined, { weekday: 'narrow' })
+    if (isWeek) return date.toLocaleDateString(locale(), { weekday: 'narrow' })
     // In a month, only label every 7th day so the numbers don't touch.
     return (date.getDate() - 1) % 7 === 0 ? String(date.getDate()) : ''
   }
@@ -28,7 +29,7 @@ export default function BarChart({ days, kcalByDay, target, onSelect }: Props) {
       <div className="chart-area">
         {target > 0 && (
           <div className="chart-target" style={{ bottom: `${(target / top) * 100}%` }}>
-            <span>{Math.round(target)}</span>
+            <span>{num(target)}</span>
           </div>
         )}
         {days.map((day) => {
@@ -39,7 +40,7 @@ export default function BarChart({ days, kcalByDay, target, onSelect }: Props) {
               className="chart-col"
               disabled={day > today} // future days can't be opened
               onClick={() => onSelect(day)}
-              aria-label={`${day}: ${Math.round(kcal)} kcal`}
+              aria-label={`${day}: ${num(kcal)} kcal`}
             >
               <div
                 className={kcal > target && target > 0 ? 'chart-bar over' : 'chart-bar'}

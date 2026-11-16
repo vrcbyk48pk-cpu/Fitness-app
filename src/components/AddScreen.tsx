@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addEntry, db, logAgain } from '../db'
 import type { Entry, Meal, Product } from '../types'
-import { fmt, formatDay, MEAL_LABELS, shiftDay, todayKey } from '../utils'
+import { fmt, formatDay, mealLabel, shiftDay, todayKey } from '../utils'
 import Button from './Button'
 import MealPicker from './MealPicker'
 import ProductPicker from './ProductPicker'
 import ProductSheet from './ProductSheet'
 import { SavedMealList } from './SavedMeals'
+import { t, num } from '../i18n'
 
 interface Props {
   date: string
@@ -24,15 +25,15 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
   // One-tap re-log: same amount as last time, straight into the selected meal.
   async function quickAdd(p: Product) {
     await addEntry(p, p.lastGrams, date, meal)
-    onLogged(`Added ${p.name} · ${fmt(p.lastGrams)} g`, false)
+    onLogged(t('add.added', { name: p.name, grams: fmt(p.lastGrams) }), false)
   }
 
   return (
     <>
       <header className="page-head">
         <div>
-          <h1 className="page-title">Add food</h1>
-          {date !== todayKey() && <p className="muted">Logging to {formatDay(date)}</p>}
+          <h1 className="page-title">{t('add.title')}</h1>
+          {date !== todayKey() && <p className="muted">{t('add.loggingTo', { day: formatDay(date).toLowerCase() })}</p>}
         </div>
       </header>
 
@@ -44,13 +45,13 @@ export default function AddScreen({ date, meal, setMeal, onLogged }: Props) {
         extraLists={[
           {
             value: 'meals',
-            label: 'Meals',
+            label: t('add.meals'),
             content: <SavedMealList date={date} meal={meal} onLogged={(message) => onLogged(message, false)} />,
           },
           {
             value: 'yesterday',
-            // Relative to the day being logged to.
-            label: date === todayKey() ? 'Yesterday' : formatDay(dayBefore),
+            // The day before the one being logged to: "Yesterday", or its date.
+            label: formatDay(dayBefore),
             content: <DayBeforeList from={dayBefore} to={date} meal={meal} onLogged={(message) => onLogged(message, false)} />,
           },
         ]}
@@ -85,21 +86,21 @@ function DayBeforeList({ from, to, meal, onLogged }: DayBeforeProps) {
 
   async function again(entry: Entry) {
     await logAgain(entry, to, meal)
-    onLogged(`Added ${entry.name} to ${MEAL_LABELS[meal].toLowerCase()}`)
+    onLogged(t('saved.addedTo', { name: entry.name, meal: mealLabel(meal).toLowerCase() }))
   }
 
   return (
     <>
-      {entries.length === 0 && <p className="empty">Nothing was logged on {formatDay(from).toLowerCase()}.</p>}
+      {entries.length === 0 && <p className="empty">{t('add.nothingOn', { day: formatDay(from).toLowerCase() })}</p>}
       {entries.map((entry) => (
-        <div className="row glass" key={entry.id}>
+        <div className="row surface" key={entry.id}>
           <div className="row-main">
             <div className="row-title">{entry.name}</div>
             <div className="muted">
-              {MEAL_LABELS[entry.meal]} · {fmt(entry.grams)} g · {Math.round(entry.kcal)} kcal
+              {mealLabel(entry.meal)} · {fmt(entry.grams)} g · {num(entry.kcal)} kcal
             </div>
           </div>
-          <Button variant="primary" size="small" layout="round" icon="plus" onClick={() => again(entry)} aria-label={`Log ${entry.name} again`} />
+          <Button variant="primary" size="small" layout="round" icon="plus" onClick={() => again(entry)} aria-label={t('add.logAgain', { name: entry.name })} />
         </div>
       ))}
     </>

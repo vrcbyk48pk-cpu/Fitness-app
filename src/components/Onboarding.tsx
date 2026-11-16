@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  ACTIVITY_OPTIONS,
+  activityOptions,
   bestPace,
-  DISCLAIMER,
-  GOAL_OPTIONS,
+  goalOptions,
   goalDate,
   hasPace,
   isUnderweight,
@@ -18,7 +17,8 @@ import {
 } from '../calculator'
 import { hasSavedTargets, saveProfile, saveTargets, saveWeight, skipOnboarding } from '../db'
 import type { Activity, Goal, Macros, Profile, Sex } from '../types'
-import { formatDate, parseNumber, todayKey } from '../utils'
+import { inputNumber, t } from '../i18n'
+import { fmt, formatDate, parseNumber, todayKey } from '../utils'
 import Button from './Button'
 import Choices from './Choices'
 import PacePicker from './PacePicker'
@@ -48,16 +48,16 @@ function stepsFor(goal: Goal | undefined): Step[] {
   ]
 }
 
-const SEX_OPTIONS: { value: Sex; label: string }[] = [
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
+const sexOptions = (): { value: Sex; label: string }[] => [
+  { value: 'female', label: t('sex.female') },
+  { value: 'male', label: t('sex.male') },
 ]
 
 // The simple number questions: what to ask and which answers make sense.
 const NUMBER_STEPS = {
-  weight: { title: 'What do you weigh now?', unit: 'kg', min: 30, max: 300, decimal: true },
-  age: { title: 'How old are you?', unit: 'years', min: 13, max: 100, decimal: false },
-  height: { title: 'How tall are you?', unit: 'cm', min: 100, max: 250, decimal: false },
+  weight: { titleKey: 'onb.weightTitle', unit: 'kg', min: 30, max: 300, decimal: true },
+  age: { titleKey: 'onb.ageTitle', unit: '', min: 13, max: 100, decimal: false },
+  height: { titleKey: 'onb.heightTitle', unit: 'cm', min: 100, max: 250, decimal: false },
 }
 
 // A short flow with one question per screen, ending in suggested targets.
@@ -69,8 +69,8 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
   const [chosenPace, setChosenPace] = useState<number | undefined>(profile?.pace)
   // The number answers are kept as text while typing.
   const [numbers, setNumbers] = useState({
-    weight: profile ? String(profile.weightKg) : '',
-    target: profile?.targetWeightKg !== undefined ? String(profile.targetWeightKg) : '',
+    weight: profile ? inputNumber(profile.weightKg) : '',
+    target: profile?.targetWeightKg !== undefined ? inputNumber(profile.targetWeightKg) : '',
     age: profile ? String(profile.age) : '',
     height: profile ? String(profile.heightCm) : '',
   })
@@ -175,7 +175,7 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
     <div className="onboarding">
       <div className="onboarding-top">
         {step > 0 ? (
-          <Button variant="glass" layout="round" icon="back" onClick={() => setStep(step - 1)} aria-label="Back" />
+          <Button variant="soft" layout="round" icon="back" onClick={() => setStep(step - 1)} aria-label={t('common.back')} />
         ) : (
           <span style={{ width: 44 }} />
         )}
@@ -184,8 +184,8 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
             <i key={s} className={i <= step ? 'done' : ''} />
           ))}
         </div>
-        <Button variant="glass" size="small" onClick={skip}>
-          {firstRun ? 'Skip' : 'Cancel'}
+        <Button variant="soft" size="small" onClick={skip}>
+          {firstRun ? t('common.skip') : t('common.cancel')}
         </Button>
       </div>
 
@@ -193,28 +193,28 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
       <div className="onboarding-step" key={name}>
         {name === 'goal' && (
           <>
-            <h1 className="page-title">What is your goal?</h1>
-            <p className="muted">This sets how many calories and how much protein to aim for.</p>
-            <Choices options={GOAL_OPTIONS} value={goal} onChange={setGoal} />
+            <h1 className="page-title">{t('onb.goalTitle')}</h1>
+            <p className="muted">{t('onb.goalText')}</p>
+            <Choices options={goalOptions()} value={goal} onChange={setGoal} />
           </>
         )}
 
         {(name === 'weight' || name === 'age' || name === 'height') && (
           <>
-            <h1 className="page-title">{NUMBER_STEPS[name].title}</h1>
-            <label className="big-input glass">
+            <h1 className="page-title">{t(NUMBER_STEPS[name].titleKey)}</h1>
+            <label className="big-input surface">
               <input
                 inputMode={NUMBER_STEPS[name].decimal ? 'decimal' : 'numeric'}
                 autoFocus
                 value={numbers[name]}
                 onChange={(e) => setNumbers({ ...numbers, [name]: e.target.value })}
-                aria-label={NUMBER_STEPS[name].title}
+                aria-label={t(NUMBER_STEPS[name].titleKey)}
               />
-              <span>{NUMBER_STEPS[name].unit}</span>
+              <span>{NUMBER_STEPS[name].unit || t('unit.years')}</span>
             </label>
             {numbers[name] !== '' && !canContinue && (
               <p className="muted">
-                Enter a number between {NUMBER_STEPS[name].min} and {NUMBER_STEPS[name].max}.
+                {t('onb.range', { min: NUMBER_STEPS[name].min, max: NUMBER_STEPS[name].max })}
               </p>
             )}
           </>
@@ -222,19 +222,17 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
 
         {name === 'target' && weight !== null && (
           <>
-            <h1 className="page-title">What weight are you aiming for?</h1>
+            <h1 className="page-title">{t('onb.targetTitle')}</h1>
             <p className="muted">
-              {goal === 'recomp'
-                ? `You weigh ${weight} kg now. A target is optional here: leave it empty if the scale is not your goal.`
-                : `You weigh ${weight} kg now.`}
+              {t(goal === 'recomp' ? 'onb.targetOptional' : 'onb.youWeigh', { kg: fmt(weight) })}
             </p>
-            <label className="big-input glass">
+            <label className="big-input surface">
               <input
                 inputMode="decimal"
                 autoFocus
                 value={numbers.target}
                 onChange={(e) => setNumbers({ ...numbers, target: e.target.value })}
-                aria-label="Target weight in kg"
+                aria-label={t('onb.targetAria')}
               />
               <span>kg</span>
             </label>
@@ -248,32 +246,30 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
 
         {name === 'sex' && (
           <>
-            <h1 className="page-title">What is your sex?</h1>
-            <p className="muted">The formula for calories uses a different number for men and women.</p>
-            <Choices options={SEX_OPTIONS} value={sex} onChange={setSex} />
+            <h1 className="page-title">{t('onb.sexTitle')}</h1>
+            <p className="muted">{t('onb.sexText')}</p>
+            <Choices options={sexOptions()} value={sex} onChange={setSex} />
           </>
         )}
 
         {name === 'activity' && (
           <>
-            <h1 className="page-title">How active are you?</h1>
-            <p className="muted">Think of a normal week, including work or study.</p>
-            <Choices options={ACTIVITY_OPTIONS} value={activity} onChange={setActivity} />
+            <h1 className="page-title">{t('onb.activityTitle')}</h1>
+            <p className="muted">{t('onb.activityText')}</p>
+            <Choices options={activityOptions()} value={activity} onChange={setActivity} />
           </>
         )}
 
         {name === 'pace' && draft && (
           <>
-            <h1 className="page-title">How fast?</h1>
+            <h1 className="page-title">{t('onb.paceTitle')}</h1>
             <p className="muted">
-              {goal === 'muscle'
-                ? 'A slower pace adds less fat along with the muscle.'
-                : 'A faster pace means eating less each day. Slower is easier to keep up.'}
+              {goal === 'muscle' ? t('onb.paceMuscle') : t('onb.paceDeficit')}
             </p>
             <PacePicker choices={choices} value={pace} onChange={setChosenPace} targetKg={draft.targetWeightKg} />
             {pace === undefined && (
               <p className="note">
-                None of these fit you right now, so your calories will stay at the lowest safe level instead.
+                {t('onb.paceNone')}
               </p>
             )}
           </>
@@ -281,19 +277,19 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
 
         {name === 'summary' && answers && suggestion && targetTexts && (
           <>
-            <h1 className="page-title">Your daily targets</h1>
-            <section className="card glass">
+            <h1 className="page-title">{t('onb.summaryTitle')}</h1>
+            <section className="card surface">
               <div className="field-grid">
                 {(
                   [
-                    ['kcal', 'Calories (kcal)'],
-                    ['protein', 'Protein (g)'],
-                    ['carbs', 'Carbs (g)'],
-                    ['fat', 'Fat (g)'],
+                    ['kcal', 'field.kcal'],
+                    ['protein', 'field.protein'],
+                    ['carbs', 'field.carbs'],
+                    ['fat', 'field.fat'],
                   ] as const
-                ).map(([key, label]) => (
+                ).map(([key, labelKey]) => (
                   <label className="field" key={key}>
-                    <span>{label}</span>
+                    <span>{t(labelKey)}</span>
                     <input
                       className="input number"
                       inputMode="decimal"
@@ -303,11 +299,11 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
                   </label>
                 ))}
               </div>
-              <p className="muted">Tap a number to change it.</p>
+              <p className="muted">{t('onb.tapNumber')}</p>
 
               {reachDate && (
                 <p className="estimate">
-                  Estimated to reach {answers.targetWeightKg} kg around {formatDate(reachDate)}
+                  {t('onb.estimate', { target: fmt(answers.targetWeightKg ?? 0), date: formatDate(reachDate) })}
                 </p>
               )}
               {suggestion.note && <p className="note">{suggestion.note}</p>}
@@ -315,13 +311,12 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
                 answers.targetWeightKg < answers.weightKg &&
                 isUnderweight(answers.targetWeightKg, answers.heightCm) && (
                   <p className="note">
-                    A target of {answers.targetWeightKg} kg is below the healthy range for your height. Consider a
-                    higher target, and talk to a doctor first.
+                    {t('onb.underweight', { target: fmt(answers.targetWeightKg) })}
                   </p>
                 )}
 
               <p className="note">{suggestion.explanation}</p>
-              <p className="muted">{DISCLAIMER}</p>
+              <p className="muted">{t('disclaimer')}</p>
             </section>
           </>
         )}
@@ -330,17 +325,17 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
           {name === 'summary' ? (
             <>
               <Button variant="primary" block disabled={!typedTargets()} onClick={() => finish(typedTargets())}>
-                Save as my targets
+                {t('onb.saveTargets')}
               </Button>
               {hasTargets && (
-                <Button variant="glass" block onClick={() => finish(null)}>
-                  Keep my current targets
+                <Button variant="soft" block onClick={() => finish(null)}>
+                  {t('onb.keepTargets')}
                 </Button>
               )}
             </>
           ) : (
             <Button variant="primary" block disabled={!canContinue} onClick={next}>
-              Continue
+              {t('common.continue')}
             </Button>
           )}
         </div>

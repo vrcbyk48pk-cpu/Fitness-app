@@ -1,4 +1,5 @@
 // The maths of meal prepping. Pure functions, unit-tested in mealPrep.test.ts.
+import { t } from './i18n'
 import type { MealPrep, Nutrients, Product } from './types'
 import { EXTRAS, scaleNutrients } from './utils'
 
@@ -44,10 +45,10 @@ export function perPortion(prep: Pick<MealPrep, 'ingredients' | 'portions'>): Nu
 
 // What is still wrong with a meal prep before it can be saved, or null when it is complete.
 export function prepProblem(prep: Pick<MealPrep, 'name' | 'ingredients' | 'cookedWeight' | 'portions'>): string | null {
-  if (prep.name.trim() === '') return 'Give the meal prep a name.'
-  if (prep.ingredients.length === 0) return 'Add at least one ingredient.'
-  if (!(prep.cookedWeight > 0)) return 'Enter the weight of the finished dish.'
-  if (prep.portions !== undefined && !(prep.portions > 0)) return 'The number of portions has to be more than 0.'
+  if (prep.name.trim() === '') return t('prep.problem.name')
+  if (prep.ingredients.length === 0) return t('prep.problem.ingredients')
+  if (!(prep.cookedWeight > 0)) return t('prep.problem.weight')
+  if (prep.portions !== undefined && !(prep.portions > 0)) return t('prep.problem.portions')
   return null
 }
 

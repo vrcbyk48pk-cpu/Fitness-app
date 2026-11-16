@@ -7,6 +7,7 @@ export interface Choice<T> {
   description?: string
   detail?: string // an optional second line under the description
   disabled?: boolean // shown, but cannot be chosen
+  lead?: React.ReactNode // something to show in front of the text, e.g. a colour swatch
 }
 
 interface Props<T> {
@@ -15,7 +16,7 @@ interface Props<T> {
   onChange: (value: T) => void
 }
 
-// A list of glass rows to pick one from; the selected one gets an accent outline and a check mark.
+// A list of rows to pick one from; the selected one gets an accent outline and a check mark.
 export default function Choices<T extends string | number>({ options, value, onChange }: Props<T>) {
   return (
     <div>
@@ -23,11 +24,12 @@ export default function Choices<T extends string | number>({ options, value, onC
         <button
           key={option.value}
           type="button"
-          className={option.value === value ? 'row glass selected' : 'row glass'}
+          className={option.value === value ? 'row surface selected' : 'row surface'}
           onClick={() => onChange(option.value)}
           disabled={option.disabled}
           aria-pressed={option.value === value}
         >
+          {option.lead}
           <div className="row-main">
             <div className="row-title">
               {option.label}
