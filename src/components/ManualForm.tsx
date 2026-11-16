@@ -17,6 +17,11 @@ interface Props {
 // Turns an optional number into the text shown in an input.
 const text = (value?: number) => (value === undefined ? '' : String(value))
 
+// An optional field: empty means "unknown" (undefined); otherwise it must be a number (null = invalid).
+function optional(value: string): number | undefined | null {
+  return value.trim() === '' ? undefined : parseNumber(value)
+}
+
 // Form to create a custom product (all values per 100 g).
 // It is also the review screen after a label scan.
 export default function ManualForm({ draft, note, photo, onScanLabel, onClose, onSaved }: Props) {
@@ -25,6 +30,9 @@ export default function ManualForm({ draft, note, photo, onScanLabel, onClose, o
   const [protein, setProtein] = useState(text(draft.protein))
   const [carbs, setCarbs] = useState(text(draft.carbs))
   const [fat, setFat] = useState(text(draft.fat))
+  const [fibre, setFibre] = useState(text(draft.fibre))
+  const [sugar, setSugar] = useState(text(draft.sugar))
+  const [salt, setSalt] = useState(text(draft.salt))
 
   const values = {
     kcal: parseNumber(kcal),
@@ -32,12 +40,16 @@ export default function ManualForm({ draft, note, photo, onScanLabel, onClose, o
     carbs: parseNumber(carbs),
     fat: parseNumber(fat),
   }
+  const extras = { fibre: optional(fibre), sugar: optional(sugar), salt: optional(salt) }
   const valid =
     name.trim() !== '' &&
     values.kcal !== null &&
     values.protein !== null &&
     values.carbs !== null &&
-    values.fat !== null
+    values.fat !== null &&
+    extras.fibre !== null &&
+    extras.sugar !== null &&
+    extras.salt !== null
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -52,6 +64,9 @@ export default function ManualForm({ draft, note, photo, onScanLabel, onClose, o
       protein: values.protein!,
       carbs: values.carbs!,
       fat: values.fat!,
+      fibre: extras.fibre ?? undefined,
+      sugar: extras.sugar ?? undefined,
+      salt: extras.salt ?? undefined,
       source: 'custom',
       favourite: false,
       lastUsed: Date.now(),
@@ -95,6 +110,15 @@ export default function ManualForm({ draft, note, photo, onScanLabel, onClose, o
           </div>
         </div>
 
+        <div>
+          <div className="label">Optional, per 100 g</div>
+          <div className="field-grid three">
+            <NumberField label="Fibre (g)" value={fibre} onChange={setFibre} placeholder="–" />
+            <NumberField label="Sugar (g)" value={sugar} onChange={setSugar} placeholder="–" />
+            <NumberField label="Salt (g)" value={salt} onChange={setSalt} placeholder="–" />
+          </div>
+        </div>
+
         <Button variant={onScanLabel ? 'quiet' : 'primary'} block type="submit" disabled={!valid}>
           Save and continue
         </Button>
@@ -103,16 +127,24 @@ export default function ManualForm({ draft, note, photo, onScanLabel, onClose, o
   )
 }
 
-function NumberField(props: { label: string; value: string; onChange: (value: string) => void; highlight?: boolean }) {
+interface FieldProps {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  highlight?: boolean
+  placeholder?: string
+}
+
+function NumberField({ label, value, onChange, highlight, placeholder = '0' }: FieldProps) {
   return (
     <label className="field">
-      <span>{props.label}</span>
+      <span>{label}</span>
       <input
-        className={props.highlight ? 'input missing' : 'input'}
+        className={highlight ? 'input missing' : 'input'}
         inputMode="decimal"
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        placeholder={props.highlight ? 'fill in' : '0'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={highlight ? 'fill in' : placeholder}
       />
     </label>
   )

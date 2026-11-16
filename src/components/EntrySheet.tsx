@@ -46,6 +46,11 @@ export default function EntrySheet({ entry, onClose }: Props) {
         />
         <span className="muted">grams · {Math.round(kcal)} kcal</span>
       </div>
+      {entry.portions !== undefined && (
+        <p className="muted extras">
+          Logged as {fmt(entry.portions)} {entry.portions === 1 ? 'portion' : 'portions'}
+        </p>
+      )}
 
       <div className="label">Meal</div>
       <MealPicker meal={meal} setMeal={setMeal} inset />

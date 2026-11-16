@@ -2,18 +2,22 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ACTIVITY_OPTIONS,
+  bestPace,
   DISCLAIMER,
   GOAL_OPTIONS,
   goalDate,
+  hasPace,
   isUnderweight,
   longRoadNote,
+  paceChoices,
   paceFor,
+  recompTip,
   suggestTargets,
   targetWeightProblem,
   weeksToTarget,
 } from '../calculator'
-import { db, saveProfile, saveTargets, saveWeight, skipOnboarding } from '../db'
-import type { Activity, Goal, Profile, Sex, Targets } from '../types'
+import { hasSavedTargets, saveProfile, saveTargets, saveWeight, skipOnboarding } from '../db'
+import type { Activity, Goal, Macros, Profile, Sex } from '../types'
 import { formatDate, parseNumber, todayKey } from '../utils'
 import Button from './Button'
 import Choices from './Choices'
@@ -25,14 +29,23 @@ interface Props {
   onDone: () => void
 }
 
-type Step = 'goal' | 'weight' | 'target' | 'pace' | 'sex' | 'age' | 'height' | 'activity' | 'summary'
+type Step = 'goal' | 'weight' | 'target' | 'sex' | 'age' | 'height' | 'activity' | 'pace' | 'summary'
 
-// The questions, in order. Which goal questions are asked depends on the goal:
-// losing weight and building muscle need a target and a pace, recomposition
-// has an optional target, and staying healthy needs neither.
+// The questions, in order. Every goal except "stay healthy" also asks for a target weight
+// and a pace. The pace comes last, because comparing the options needs all the other answers.
 function stepsFor(goal: Goal | undefined): Step[] {
-  const goalSteps: Step[] = goal === 'lose' || goal === 'muscle' ? ['target', 'pace'] : goal === 'recomp' ? ['target'] : []
-  return ['goal', 'weight', ...goalSteps, 'sex', 'age', 'height', 'activity', 'summary']
+  const withGoal = goal !== undefined && hasPace(goal)
+  return [
+    'goal',
+    'weight',
+    ...(withGoal ? (['target'] as const) : []),
+    'sex',
+    'age',
+    'height',
+    'activity',
+    ...(withGoal ? (['pace'] as const) : []),
+    'summary',
+  ]
 }
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
@@ -61,10 +74,10 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
     age: profile ? String(profile.age) : '',
     height: profile ? String(profile.heightCm) : '',
   })
-  // The four target fields on the summary screen (editable).
-  const [targetTexts, setTargetTexts] = useState<Record<keyof Targets, string> | null>(null)
+  // The four calculated targets on the summary screen (editable).
+  const [targetTexts, setTargetTexts] = useState<Record<keyof Macros, string> | null>(null)
   // Are there targets saved already? Then we also offer to keep them.
-  const hasTargets = useLiveQuery(() => db.settings.get('targets').then((row) => row !== undefined)) ?? false
+  const hasTargets = useLiveQuery(hasSavedTargets) ?? false
 
   const steps = stepsFor(goal)
   const name = steps[step]
@@ -79,33 +92,31 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
   const age = numberAnswer('age')
   const height = numberAnswer('height')
 
-  // ----- Target weight and pace -----
+  // ----- Target weight -----
   const asksTarget = steps.includes('target')
   const target = asksTarget ? parseNumber(numbers.target) : null
   const targetProblem = goal && weight !== null && target !== null ? targetWeightProblem(goal, weight, target) : null
   // For recomposition the target may be left empty.
   const targetOk = goal === 'recomp' && numbers.target.trim() === '' ? true : target !== null && targetProblem === null
-  const pace = goal ? paceFor(goal, chosenPace) : 0
-  // How long the target takes at the recommended pace, to warn when it is far away.
+  // How long the target takes at the recommended pace, to remark on it when it is far away.
   const weeksAway =
     goal && weight !== null && target !== null && targetProblem === null
       ? weeksToTarget(weight, target, goal === 'muscle' ? paceFor(goal) : -paceFor(goal))
       : null
 
-  // Complete once every question has a valid answer.
-  const answers: Profile | null =
+  // ----- Everything except the pace -----
+  const draft: Profile | null =
     goal && sex && activity && age !== null && height !== null && weight !== null && (!asksTarget || targetOk)
-      ? {
-          goal,
-          sex,
-          activity,
-          age,
-          heightCm: height,
-          weightKg: weight,
-          targetWeightKg: target ?? undefined,
-          pace: pace > 0 ? pace : undefined,
-        }
+      ? { goal, sex, activity, age, heightCm: height, weightKg: weight, targetWeightKg: target ?? undefined }
       : null
+
+  // ----- Pace: compare the options for this person -----
+  const choices = draft ? paceChoices(draft, new Date()) : []
+  const pace = bestPace(choices, chosenPace)
+
+  // The complete answers. When no pace is available, the recommended one is stored
+  // and the calculator limits the calories (and says so on the summary).
+  const answers: Profile | null = draft && goal ? { ...draft, pace: hasPace(goal) ? (pace ?? paceFor(goal)) : undefined } : null
   const suggestion = answers ? suggestTargets(answers) : null
   const reachDate = answers ? goalDate(answers, new Date()) : null
 
@@ -113,11 +124,11 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
     goal: goal !== undefined,
     weight: weight !== null,
     target: targetOk,
-    pace: true, // the recommended pace is selected until another is chosen
     sex: sex !== undefined,
     age: age !== null,
     height: height !== null,
     activity: activity !== undefined,
+    pace: true, // the best available pace is selected until another is chosen
     summary: true,
   }[name]
 
@@ -136,7 +147,7 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
   }
 
   // The targets as typed on the summary screen, or null if a field is not a number.
-  function typedTargets(): Targets | null {
+  function typedTargets(): Macros | null {
     if (!targetTexts) return null
     const kcal = parseNumber(targetTexts.kcal)
     const protein = parseNumber(targetTexts.protein)
@@ -145,7 +156,7 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
     return kcal !== null && protein !== null && carbs !== null && fat !== null ? { kcal, protein, carbs, fat } : null
   }
 
-  async function finish(newTargets: Targets | null) {
+  async function finish(newTargets: Macros | null) {
     if (!answers) return
     // A new weight also goes into the weight log, so the two never disagree.
     if (answers.weightKg !== profile?.weightKg) await saveWeight(todayKey(), answers.weightKg)
@@ -209,7 +220,7 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
           </>
         )}
 
-        {name === 'target' && (
+        {name === 'target' && weight !== null && (
           <>
             <h1 className="page-title">What weight are you aiming for?</h1>
             <p className="muted">
@@ -228,19 +239,10 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
               <span>kg</span>
             </label>
             {targetProblem && <p className="note">{targetProblem}</p>}
+            {goal === 'recomp' && recompTip(weight, target ?? undefined) && (
+              <p className="note">{recompTip(weight, target ?? undefined)}</p>
+            )}
             {longRoadNote(weeksAway) && <p className="note">{longRoadNote(weeksAway)}</p>}
-          </>
-        )}
-
-        {name === 'pace' && (goal === 'lose' || goal === 'muscle') && weight !== null && target !== null && (
-          <>
-            <h1 className="page-title">How fast?</h1>
-            <p className="muted">
-              {goal === 'lose'
-                ? 'A faster pace means eating less each day. Slower is easier to keep up.'
-                : 'A slower pace adds less fat along with the muscle.'}
-            </p>
-            <PacePicker goal={goal} value={pace} onChange={setChosenPace} currentKg={weight} targetKg={target} />
           </>
         )}
 
@@ -257,6 +259,23 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
             <h1 className="page-title">How active are you?</h1>
             <p className="muted">Think of a normal week, including work or study.</p>
             <Choices options={ACTIVITY_OPTIONS} value={activity} onChange={setActivity} />
+          </>
+        )}
+
+        {name === 'pace' && draft && (
+          <>
+            <h1 className="page-title">How fast?</h1>
+            <p className="muted">
+              {goal === 'muscle'
+                ? 'A slower pace adds less fat along with the muscle.'
+                : 'A faster pace means eating less each day. Slower is easier to keep up.'}
+            </p>
+            <PacePicker choices={choices} value={pace} onChange={setChosenPace} targetKg={draft.targetWeightKg} />
+            {pace === undefined && (
+              <p className="note">
+                None of these fit you right now, so your calories will stay at the lowest safe level instead.
+              </p>
+            )}
           </>
         )}
 

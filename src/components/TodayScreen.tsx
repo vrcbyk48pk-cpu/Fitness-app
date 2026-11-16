@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { copyMealFromDayBefore, db, DEFAULT_TARGETS, entriesForMeal, getTargets } from '../db'
 import type { Entry, Meal } from '../types'
-import { fmt, formatDay, MEAL_LABELS, MEALS, shiftDay, sumMacros, todayKey } from '../utils'
+import { fmt, formatDay, MEAL_LABELS, MEALS, shiftDay, sumExtra, sumMacros, todayKey } from '../utils'
+import BackupBanner from './BackupBanner'
 import Button from './Button'
 import CalorieRing from './CalorieRing'
+import DayDetails from './DayDetails'
 import EntrySheet from './EntrySheet'
 import MacroBar from './MacroBar'
 import { SaveMealSheet } from './SavedMeals'
@@ -22,8 +24,11 @@ export default function TodayScreen({ date, setDate, onAddTo, onToast }: Props) 
   const targets = useLiveQuery(getTargets) ?? DEFAULT_TARGETS
   const [editing, setEditing] = useState<Entry | null>(null)
   const [savingMeal, setSavingMeal] = useState<Meal | null>(null)
+  const [showDetails, setShowDetails] = useState(false)
 
   const total = sumMacros(entries)
+  // Fibre is not known for every food: count what is known, and say how many are missing.
+  const fibre = sumExtra(entries, 'fibre')
   const isToday = date === todayKey()
   const entriesOf = (meal: Meal) => entries.filter((e) => e.meal === meal)
 
@@ -47,11 +52,23 @@ export default function TodayScreen({ date, setDate, onAddTo, onToast }: Props) 
         </div>
       </header>
 
+      <BackupBanner />
+
       <section className="card glass">
         <CalorieRing eaten={total.kcal} target={targets.kcal} />
         <MacroBar label="Protein" eaten={total.protein} target={targets.protein} color="var(--protein)" />
         <MacroBar label="Carbs" eaten={total.carbs} target={targets.carbs} color="var(--carbs)" />
         <MacroBar label="Fat" eaten={total.fat} target={targets.fat} color="var(--fat)" />
+        <MacroBar
+          label="Fibre"
+          eaten={fibre.total}
+          target={targets.fibre}
+          color="var(--fibre)"
+          note={fibre.unknown > 0 ? `Not known for ${fibre.unknown} of ${entries.length} foods` : undefined}
+        />
+        <Button block size="small" icon="info" onClick={() => setShowDetails(true)}>
+          Day details
+        </Button>
       </section>
 
       {MEALS.map((meal) => (
@@ -68,6 +85,8 @@ export default function TodayScreen({ date, setDate, onAddTo, onToast }: Props) 
       ))}
 
       {editing && <EntrySheet entry={editing} onClose={() => setEditing(null)} />}
+
+      {showDetails && <DayDetails entries={entries} targets={targets} onClose={() => setShowDetails(false)} />}
 
       {savingMeal && (
         <SaveMealSheet
@@ -129,7 +148,10 @@ function MealSection({ meal, date, entries, onAdd, onEdit, onSave, onToast }: Se
         <button className="row glass" key={entry.id} onClick={() => onEdit(entry)}>
           <div className="row-main">
             <div className="row-title">{entry.name}</div>
-            <div className="muted">{fmt(entry.grams)} g</div>
+            <div className="muted">
+              {entry.portions !== undefined && `${fmt(entry.portions)} ${entry.portions === 1 ? 'portion' : 'portions'} · `}
+              {fmt(entry.grams)} g
+            </div>
           </div>
           <div className="row-value">
             {Math.round(entry.kcal)} <span className="muted">kcal</span>

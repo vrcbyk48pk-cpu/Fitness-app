@@ -4,11 +4,12 @@ import TabBar, { type Tab } from './components/TabBar'
 import TodayScreen from './components/TodayScreen'
 import AddScreen from './components/AddScreen'
 import HistoryScreen from './components/HistoryScreen'
+import MealPrepScreen from './components/MealPrepScreen'
 import SettingsScreen from './components/SettingsScreen'
 import GoalSheet from './components/GoalSheet'
 import Onboarding from './components/Onboarding'
 import { needsGoalDetails } from './calculator'
-import { dismissGoalPrompt, getProfile, goalPromptDismissed, needsOnboarding } from './db'
+import { dismissPaceQuestion, getProfile, needsOnboarding, paceAsked } from './db'
 import type { Meal } from './types'
 import { mealForTime, todayKey } from './utils'
 
@@ -26,8 +27,8 @@ export default function App() {
   const firstRun = useLiveQuery(needsOnboarding)
   const profile = useLiveQuery(getProfile)
   const [editingProfile, setEditingProfile] = useState(false)
-  // Profiles made before the app asked for a target weight and pace get one short question.
-  const goalAsked = useLiveQuery(goalPromptDismissed)
+  // A profile without a chosen pace (or target weight) gets one short question.
+  const alreadyAsked = useLiveQuery(paceAsked)
 
   function showToast(message: string) {
     setToast(message)
@@ -36,7 +37,7 @@ export default function App() {
 
   // Opening the Add tab from the tab bar picks the meal that fits the current time.
   function openTab(next: Tab) {
-    if (next === 'add') setMeal(mealForTime(new Date()))
+    if (next === 'add' || next === 'prep') setMeal(mealForTime(new Date()))
     setTab(next)
   }
 
@@ -57,7 +58,7 @@ export default function App() {
 
   const loading = firstRun === undefined || profile === undefined
   const showOnboarding = firstRun || editingProfile
-  const askGoal = !loading && !showOnboarding && goalAsked === false && profile !== null && needsGoalDetails(profile)
+  const askGoal = !loading && !showOnboarding && alreadyAsked === false && profile !== null && needsGoalDetails(profile)
 
   return (
     <>
@@ -97,6 +98,16 @@ export default function App() {
                 }}
               />
             )}
+            {tab === 'prep' && (
+              <MealPrepScreen
+                date={date}
+                meal={meal}
+                onLogged={(message) => {
+                  showToast(message)
+                  setTab('today')
+                }}
+              />
+            )}
             {tab === 'history' && (
               <HistoryScreen
                 onOpenDay={(day) => {
@@ -111,7 +122,7 @@ export default function App() {
           <TabBar tab={tab} setTab={openTab} />
 
           {/* Closing it in any way counts as "Not now": it is not shown again by itself. */}
-          {askGoal && <GoalSheet profile={profile} asking onClose={dismissGoalPrompt} />}
+          {askGoal && <GoalSheet profile={profile} asking onClose={dismissPaceQuestion} />}
         </>
       )}
 

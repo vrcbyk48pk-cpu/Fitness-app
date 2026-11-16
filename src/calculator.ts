@@ -1,6 +1,6 @@
 // Calorie and macro suggestions from a profile. Pure maths, no browser code,
 // so it is unit-tested in calculator.test.ts.
-import type { Activity, Goal, Profile, Targets } from './types'
+import type { Activity, Goal, Macros, Profile } from './types'
 
 // How much more energy you use than at complete rest.
 export const ACTIVITY_FACTORS: Record<Activity, number> = {
@@ -15,21 +15,31 @@ export const ACTIVITY_FACTORS: Record<Activity, number> = {
 // takes a deficit of 0.5 * 7700 = 3850 kcal a week, or 550 kcal a day.
 export const KCAL_PER_KG = 7700
 
-// The paces you can choose, in kg per week.
-export const PACE_OPTIONS: Record<'lose' | 'muscle', { value: number; label: string; recommended?: boolean }[]> = {
+// The paces you can choose for each goal, in kg per week.
+// (Recomposition means losing fat slowly while building muscle, so its pace is also a deficit.)
+type GoalWithPace = 'lose' | 'muscle' | 'recomp'
+
+export const PACE_OPTIONS: Record<GoalWithPace, { value: number; label: string; recommended?: boolean }[]> = {
   lose: [
     { value: 0.25, label: 'Relaxed' },
     { value: 0.5, label: 'Steady', recommended: true },
     { value: 0.75, label: 'Fast' },
+    { value: 1, label: 'Very fast' },
   ],
   muscle: [
     { value: 0.25, label: 'Lean', recommended: true },
     { value: 0.5, label: 'Faster' },
   ],
+  recomp: [
+    { value: 0.25, label: 'Gentle' },
+    { value: 0.5, label: 'Steady', recommended: true },
+    { value: 0.75, label: 'Fast' },
+  ],
 }
 
-// Body recomposition has no pace to choose: it uses a small fixed deficit.
-const RECOMP_DEFICIT = 0.1 // 10% below maintenance
+export function hasPace(goal: Goal): goal is GoalWithPace {
+  return goal !== 'maintain'
+}
 
 // Grams of protein per kg of body weight. Higher when eating less, to help keep muscle.
 const PROTEIN_PER_KG: Record<Goal, number> = {
@@ -64,9 +74,9 @@ export function dailyKcalForPace(kgPerWeek: number): number {
 }
 
 // The pace to use for a goal: the chosen one if it is a valid option, otherwise the recommended one.
-// Goals without a pace (recomposition, maintain) give 0.
+// "Stay healthy" has no pace and gives 0.
 export function paceFor(goal: Goal, chosen?: number): number {
-  if (goal !== 'lose' && goal !== 'muscle') return 0
+  if (!hasPace(goal)) return 0
   const options = PACE_OPTIONS[goal]
   return options.find((o) => o.value === chosen)?.value ?? options.find((o) => o.recommended)!.value
 }
@@ -74,7 +84,7 @@ export function paceFor(goal: Goal, chosen?: number): number {
 export interface Suggestion {
   bmr: number
   maintenance: number
-  targets: Targets
+  targets: Macros // calories and macros; the fibre target is not part of the calculation
   // The weight change these calories should give, in kg per week.
   // Negative = losing, positive = gaining, 0 = staying the same.
   weeklyChange: number
@@ -100,8 +110,8 @@ export function suggestTargets(profile: Profile): Suggestion {
     kcal = maintain + perDay
     goalText = `Gaining ${pace} kg a week takes about ${perDay} kcal more per day.`
   } else if (profile.goal === 'recomp') {
-    kcal = maintain * (1 - RECOMP_DEFICIT)
-    goalText = 'Body recomposition uses a small deficit of 10%.'
+    kcal = maintain - perDay
+    goalText = `Body recomposition at ${pace} kg a week takes about ${perDay} kcal less per day.`
   }
 
   if (profile.age < 18 && kcal < maintain) {
@@ -146,6 +156,66 @@ export function suggestTargets(profile: Profile): Suggestion {
       `${goalText} ` +
       `Protein is about ${perKg} g per kg of body weight, fat ${FAT_SHARE[profile.goal] * 100}% of calories, and carbs the rest.`,
   }
+}
+
+// ---------- Comparing the paces ----------
+
+export interface PaceChoice {
+  value: number // kg per week
+  label: string
+  recommended: boolean
+  kcal: number // the daily calories this pace gives
+  date: Date | null // when the target would be reached, if there is a target
+  available: boolean
+  reason?: string // why it is not available
+}
+
+// Every pace for the profile's goal, with its daily calories and estimated date, so they can be
+// compared. A pace that would mean eating less than the BMR is marked as not available.
+export function paceChoices(profile: Profile, from: Date): PaceChoice[] {
+  if (!hasPace(profile.goal)) return []
+  const rest = bmr(profile)
+  const maintain = maintenance(profile)
+  const isDeficit = profile.goal !== 'muscle'
+
+  return PACE_OPTIONS[profile.goal].map((option) => {
+    const suggestion = suggestTargets({ ...profile, pace: option.value })
+    let reason: string | undefined
+    if (isDeficit && profile.age < 18) {
+      reason = 'Not available under 18 without a doctor.'
+    } else if (isDeficit && maintain - dailyKcalForPace(option.value) < rest) {
+      reason = `Not available: it would mean eating less than the ${Math.round(rest)} kcal your body uses at rest.`
+    }
+    return {
+      value: option.value,
+      label: option.label,
+      recommended: option.recommended === true,
+      kcal: suggestion.targets.kcal,
+      date:
+        profile.targetWeightKg === undefined
+          ? null
+          : estimateDate(profile.weightKg, profile.targetWeightKg, suggestion.weeklyChange, from),
+      available: reason === undefined,
+      reason,
+    }
+  })
+}
+
+// The pace to select: the chosen one if it is available, otherwise the recommended one,
+// otherwise the fastest one that is. Returns undefined when no pace is available at all.
+export function bestPace(choices: PaceChoice[], chosen?: number): number | undefined {
+  const available = choices.filter((c) => c.available)
+  return (
+    available.find((c) => c.value === chosen)?.value ??
+    available.find((c) => c.recommended)?.value ??
+    available[available.length - 1]?.value
+  )
+}
+
+// Recomposition suits small changes on the scale. For a big drop, losing weight fits better.
+export function recompTip(currentKg: number, targetKg: number | undefined): string | null {
+  if (targetKg === undefined || currentKg - targetKg <= 5) return null
+  return 'That is more than 5 kg below your current weight. The goal "Lose weight" may suit you better.'
 }
 
 // ---------- Target weight ----------
@@ -199,11 +269,14 @@ export function isUnderweight(weightKg: number, heightCm: number): boolean {
   return weightKg / (heightCm / 100) ** 2 < 18.5
 }
 
-// True for a profile that should have a target weight and pace but doesn't yet
-// (made before the app asked for them).
+// True for a profile whose goal details are not complete yet: no pace was ever chosen
+// (or it is not one of the options any more), or the target weight is missing.
 export function needsGoalDetails(profile: Profile): boolean {
-  const hasPace = profile.goal === 'lose' || profile.goal === 'muscle'
-  return hasPace && (profile.targetWeightKg === undefined || profile.pace === undefined)
+  if (!hasPace(profile.goal)) return false
+  const paceChosen = PACE_OPTIONS[profile.goal].some((option) => option.value === profile.pace)
+  // For recomposition the target weight is optional.
+  const targetMissing = profile.goal !== 'recomp' && profile.targetWeightKg === undefined
+  return !paceChosen || targetMissing
 }
 
 // ---------- The choices, with the text shown in the onboarding and in Settings ----------

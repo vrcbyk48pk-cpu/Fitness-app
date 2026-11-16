@@ -6,9 +6,12 @@ export interface LabelValues {
   protein?: number
   carbs?: number
   fat?: number
+  fibre?: number
+  sugar?: number
+  salt?: number
 }
 
-type Nutrient = 'energy' | 'protein' | 'carbs' | 'fat'
+type Nutrient = 'energy' | 'protein' | 'carbs' | 'fat' | 'fibre' | 'sugar' | 'salt'
 
 // The words that start a row we care about, in Dutch and English.
 const KEYWORDS: Record<Nutrient, string[]> = {
@@ -16,13 +19,18 @@ const KEYWORDS: Record<Nutrient, string[]> = {
   protein: ['eiwit', 'eiwitten', 'protein', 'proteins', 'proteine'],
   carbs: ['koolhydraten', 'koolhydraat', 'hydraten', 'carbohydrate', 'carbohydrates', 'carbs'],
   fat: ['vet', 'vetten', 'fat', 'fats'],
+  fibre: ['vezels', 'vezel', 'voedingsvezel', 'voedingsvezels', 'fibre', 'fiber', 'fibres', 'fibers'],
+  sugar: ['suikers', 'suiker', 'sugars', 'sugar'],
+  salt: ['zout', 'salt'],
 }
 
-// Words that mark a sub-row ("waarvan suikers", "of which saturates", "saturated fat").
-// Everything from such a word onwards is ignored.
-const SUB_ROW_WORDS = [
-  'waarvan', 'which', 'verzadigd', 'verzadigde', 'onverzadigd', 'onverzadigde', 'enkelvoudig',
-  'meervoudig', 'saturates', 'saturated', 'unsaturated', 'trans', 'suikers', 'sugars',
+// "waarvan" / "of which" introduce a sub-row. They end whatever row came before them.
+const SUB_ROW_WORDS = ['waarvan', 'which']
+
+// Words for rows we do not read (saturated fat, polyols, ...). The numbers after them are skipped.
+const IGNORED_WORDS = [
+  'verzadigd', 'verzadigde', 'onverzadigd', 'onverzadigde', 'enkelvoudig', 'meervoudig',
+  'saturates', 'saturated', 'unsaturated', 'trans', 'polyolen', 'polyols', 'zetmeel', 'starch', 'added',
 ]
 
 // OCR often confuses characters that look alike (i/l/1/|, o/0, s/5).
@@ -61,32 +69,60 @@ function matches(word: string, keywords: string[]): boolean {
   })
 }
 
-// Finds the nutrient a line is about, and returns the text after its keyword
-// (cut off where a sub-row word starts). Returns null for lines we don't care about.
-function readRow(line: string): { nutrient: Nutrient; rest: string } | null {
-  let nutrient: Nutrient | null = null
-  let restStart = 0
+function nutrientFor(word: string): Nutrient | null {
+  for (const nutrient of Object.keys(KEYWORDS) as Nutrient[]) {
+    if (matches(word, KEYWORDS[nutrient])) return nutrient
+  }
+  return null
+}
+
+interface Segment {
+  nutrient: Nutrient
+  rest: string // the text after the keyword, up to where the next row starts
+}
+
+// Splits a line into the rows it contains. Usually that is one ("Eiwitten 13 g"), but OCR
+// sometimes glues a sub-row on: "Koolhydraten 20 g waarvan suikers 3 g" gives carbs and sugar.
+// Rows we don't read ("waarvan verzadigd 4 g") are left out.
+function readSegments(line: string): Segment[] {
+  const segments: Segment[] = []
+  // The row being read. nutrient null = a row we ignore.
+  let current: { nutrient: Nutrient | null; start: number } | null = null
+
+  const close = (end: number) => {
+    if (current?.nutrient) segments.push({ nutrient: current.nutrient, rest: line.slice(current.start, end) })
+    current = null
+  }
 
   for (const match of line.matchAll(/[\p{L}\d|!]+/gu)) {
     const word = match[0]
     if (!/\p{L}/u.test(word)) continue // a plain number, not a word
+    const end = match.index + word.length
 
     if (matches(word, SUB_ROW_WORDS)) {
-      // A sub-row word before any keyword: the whole line is a sub-row.
-      if (!nutrient) return null
-      return { nutrient, rest: line.slice(restStart, match.index) }
-    }
-    if (!nutrient) {
-      for (const candidate of Object.keys(KEYWORDS) as Nutrient[]) {
-        if (matches(word, KEYWORDS[candidate])) {
-          nutrient = candidate
-          restStart = match.index + word.length
-          break
-        }
+      close(match.index)
+    } else if (matches(word, IGNORED_WORDS)) {
+      close(match.index)
+      current = { nutrient: null, start: end }
+    } else {
+      const nutrient = nutrientFor(word)
+      if (!nutrient) continue
+      const ignoredSoFar: boolean = current !== null && current.nutrient === null
+      const numberSeen: boolean = current !== null && /\d/.test(line.slice(current.start, match.index))
+      if (current && ignoredSoFar && !numberSeen) {
+        // "saturated fat": the keyword belongs to the ignored row.
+        current.start = end
+      } else if (current && current.nutrient === nutrient) {
+        // The same row named twice, as on bilingual labels: "Vetten / Fat".
+        current.start = end
+      } else {
+        close(match.index)
+        current = { nutrient, start: end }
       }
     }
   }
-  return nutrient ? { nutrient, rest: line.slice(restStart) } : null
+  close(line.length)
+  return segments
 }
 
 // Repairs numbers: "O,5" -> "0.5", "l2,5" -> "12.5", "12 ,5" -> "12.5".
@@ -150,11 +186,12 @@ interface Reading {
 type Macro = 'protein' | 'carbs' | 'fat'
 const MACROS: Macro[] = ['protein', 'carbs', 'fat']
 
-// The numbers in a protein/carbs/fat row. Labels print these with at most one decimal,
+// The numbers in a row of grams. Labels print these with at most one decimal (two for salt),
 // so extra decimals are dropped: they are usually a misread "g" ("6,5 g" -> "6,509").
-function readingsIn(text: string): Reading[] {
+function readingsIn(text: string, decimals = 1): Reading[] {
   const withoutPercentages = text.replace(/\d+(\.\d+)?\s*%/g, ' ')
-  return [...withoutPercentages.matchAll(/(\d+)(?:\.(\d)\d*)?(\s*(?:g|gr|gram)\b)?/g)].map((m) => ({
+  const number = new RegExp(`(\\d+)(?:\\.(\\d{1,${decimals}})\\d*)?(\\s*(?:g|gr|gram)\\b)?`, 'g')
+  return [...withoutPercentages.matchAll(number)].map((m) => ({
     value: Number(m[2] ? `${m[1]}.${m[2]}` : m[1]),
     hasUnit: m[3] !== undefined,
   }))
@@ -244,23 +281,24 @@ export function parseLabel(text: string): LabelValues {
   const readings: Partial<Record<Macro, Reading>> = {}
 
   lines.forEach((line, i) => {
-    const row = readRow(line)
-    if (!row) return
-
-    if (row.nutrient === 'energy') {
-      if (values.kcal !== undefined) return
-      // The kcal value is often on the line below "Energie ... kJ".
-      const next = lines[i + 1]
-      const nextBelongs = next !== undefined && readRow(next) === null && !/waarvan|which/.test(next)
-      const kcal = readEnergy(row.rest + (nextBelongs ? ' ' + next : ''), column)
-      // Nothing edible has more than 900 kcal per 100 g (that is pure fat).
-      if (kcal !== undefined && kcal <= 900) values.kcal = kcal
-    } else if (values[row.nutrient] === undefined) {
-      const found = readingsIn(row.rest)
-      const reading = found[column] ?? found[0]
-      if (reading) {
-        readings[row.nutrient] = reading
+    for (const row of readSegments(line)) {
+      if (row.nutrient === 'energy') {
+        if (values.kcal !== undefined) continue
+        // The kcal value is often on the line below "Energie ... kJ".
+        const next = lines[i + 1]
+        const nextBelongs = next !== undefined && readSegments(next).length === 0 && !/waarvan|which/.test(next)
+        const kcal = readEnergy(row.rest + (nextBelongs ? ' ' + next : ''), column)
+        // Nothing edible has more than 900 kcal per 100 g (that is pure fat).
+        if (kcal !== undefined && kcal <= 900) values.kcal = kcal
+      } else if (values[row.nutrient] === undefined) {
+        // The first row with a number wins; later mentions of the same nutrient are ignored.
+        const found = readingsIn(row.rest, row.nutrient === 'salt' ? 2 : 1)
+        const reading = found[column] ?? found[0]
+        if (!reading) continue
         values[row.nutrient] = reading.value
+        if (row.nutrient === 'protein' || row.nutrient === 'carbs' || row.nutrient === 'fat') {
+          readings[row.nutrient] = reading
+        }
       }
     }
   })
@@ -275,8 +313,8 @@ export function parseLabel(text: string): LabelValues {
 
   // More than 100 g per 100 g is impossible. Leave such a value empty,
   // so the review screen asks the user to fill it in.
-  for (const macro of MACROS) {
-    if (values[macro] !== undefined && values[macro] > 100) delete values[macro]
+  for (const key of [...MACROS, 'fibre', 'sugar', 'salt'] as const) {
+    if (values[key] !== undefined && values[key] > 100) delete values[key]
   }
   return values
 }

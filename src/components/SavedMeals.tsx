@@ -2,9 +2,23 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteSavedMeal, logSavedMeal, saveMeal } from '../db'
 import type { Entry, Meal, SavedMeal } from '../types'
-import { fmt, MEAL_LABELS, sumMacros } from '../utils'
+import { totalNutrients } from '../mealPrep'
+import type { Nutrients, SavedMealItem } from '../types'
+import { fmt, MEAL_LABELS } from '../utils'
 import Button from './Button'
 import Sheet from './Sheet'
+
+// Combined calories, protein and fibre, e.g. "550 kcal · 40 g protein · 11.5 g fibre".
+function summary(total: Nutrients): string {
+  const fibre = total.fibre === undefined ? '' : ` · ${fmt(total.fibre)} g fibre`
+  return `${Math.round(total.kcal)} kcal · ${fmt(total.protein)} g protein${fibre}`
+}
+
+// "1 portion · 350 g" or "100 g"
+function amount(item: SavedMealItem): string {
+  if (item.portions === undefined) return `${fmt(item.grams)} g`
+  return `${fmt(item.portions)} ${item.portions === 1 ? 'portion' : 'portions'} · ${fmt(item.grams)} g`
+}
 
 // ---------- The list of saved meals on the Add screen ----------
 
@@ -32,10 +46,7 @@ export function SavedMealList({ date, meal, onLogged }: ListProps) {
         <div className="row glass" key={saved.id}>
           <button className="row-main" onClick={() => setOpen(saved)}>
             <div className="row-title">{saved.name}</div>
-            <div className="muted">
-              {saved.items.length} {saved.items.length === 1 ? 'food' : 'foods'} ·{' '}
-              {Math.round(sumMacros(saved.items).kcal)} kcal
-            </div>
+            <div className="muted">{summary(totalNutrients(saved.items))}</div>
           </button>
           <Button variant="primary" size="small" layout="round" icon="plus" onClick={() => log(saved)} aria-label={`Add ${saved.name}`} />
         </div>
@@ -47,7 +58,7 @@ export function SavedMealList({ date, meal, onLogged }: ListProps) {
             <div className="row plain" key={i}>
               <div className="row-main">
                 <div className="row-title">{item.name}</div>
-                <div className="muted">{fmt(item.grams)} g</div>
+                <div className="muted">{amount(item)}</div>
               </div>
               <div className="row-value">
                 {Math.round(item.kcal)} <span className="muted">kcal</span>
@@ -109,8 +120,8 @@ export function SaveMealSheet({ entries, defaultName, onClose, onSaved }: SavePr
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} onFocus={(e) => e.target.select()} />
         </label>
         <p className="muted">
-          {entries.length} {entries.length === 1 ? 'food' : 'foods'} · {Math.round(sumMacros(entries).kcal)} kcal. You can
-          log it again in one tap from Add → Meals.
+          {entries.length} {entries.length === 1 ? 'food' : 'foods'} · {summary(totalNutrients(entries))}. You can log
+          it again in one tap from Add → Meals.
         </p>
         <Button variant="primary" block type="submit" disabled={!name.trim()}>
           Save meal

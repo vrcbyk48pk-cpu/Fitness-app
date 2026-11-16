@@ -1,31 +1,31 @@
-import { dailyKcalForPace, estimateDate, PACE_OPTIONS } from '../calculator'
+import type { PaceChoice } from '../calculator'
 import { formatDate } from '../utils'
 import Choices from './Choices'
 
 interface Props {
-  goal: 'lose' | 'muscle'
-  value: number
+  choices: PaceChoice[] // from paceChoices() in calculator.ts
+  value: number | undefined
   onChange: (pace: number) => void
-  currentKg: number
-  targetKg: number
-  // The weekly change a pace really gives, when it is known that the safety floor limits it.
-  // Without it, the pace itself is used.
-  weeklyChangeFor?: (pace: number) => number
+  targetKg?: number
 }
 
-// The pace options for a goal. Each shows its daily deficit or surplus and the estimated date.
-export default function PacePicker({ goal, value, onChange, currentKg, targetKg, weeklyChangeFor }: Props) {
-  const losing = goal === 'lose'
-  const options = PACE_OPTIONS[goal].map((option) => {
-    const weeklyChange = weeklyChangeFor ? weeklyChangeFor(option.value) : losing ? -option.value : option.value
-    const date = estimateDate(currentKg, targetKg, weeklyChange, new Date())
-    return {
-      value: option.value,
-      label: option.label,
-      tag: option.recommended ? 'Recommended' : undefined,
-      description: `${option.value} kg per week · about ${dailyKcalForPace(option.value)} kcal ${losing ? 'less' : 'more'} per day`,
-      detail: date ? `Reach ${targetKg} kg around ${formatDate(date)}` : undefined,
-    }
-  })
+// The pace options side by side: each shows its daily calories and the estimated date.
+// Options that would go below the BMR are shown greyed out, with the reason.
+// Used by the onboarding, the "one thing is missing" prompt, and Settings.
+export default function PacePicker({ choices, value, onChange, targetKg }: Props) {
+  const options = choices.map((choice) => ({
+    value: choice.value,
+    label: choice.label,
+    tag: choice.recommended ? 'Recommended' : undefined,
+    description: choice.available
+      ? `${choice.value} kg per week · ${choice.kcal} kcal per day`
+      : `${choice.value} kg per week`,
+    detail: choice.available
+      ? choice.date && targetKg !== undefined
+        ? `Reach ${targetKg} kg around ${formatDate(choice.date)}`
+        : undefined
+      : choice.reason,
+    disabled: !choice.available,
+  }))
   return <Choices options={options} value={value} onChange={onChange} />
 }

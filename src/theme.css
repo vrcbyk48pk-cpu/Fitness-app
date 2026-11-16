@@ -25,6 +25,8 @@
   --carbs-text: #8c4a00;
   --fat: #9b8cff;
   --fat-text: #5441cc;
+  --fibre: #2fb89a;
+  --fibre-text: #0f6f5b;
 
   --over: #a51c38; /* bars and ring when over the target */
 
@@ -113,6 +115,8 @@
     --carbs-text: #ffb36b;
     --fat: #9b8cff;
     --fat-text: #a99cff;
+    --fibre: #4fd1b3;
+    --fibre-text: #4fd1b3;
 
     --over: #ffb9c5;
 
