@@ -11,6 +11,8 @@ No account, no server: everything is stored on the phone.
 - Meals (breakfast, lunch, dinner, snacks) with subtotals; tap an entry to edit or delete it
 - Recents, favourites, saved meals and "copy yesterday's meal" for fast logging
 - History tab: week/month calorie chart, daily averages, protein streak, weight log with 7-day average
+- Onboarding with a calorie and macro calculator (Mifflin-St Jeor), editable later in Settings
+- Barcode scanner with a flashlight button and a sharper camera picture
 - Daily targets, JSON backup export and import
 
 ## Run it on your computer
@@ -25,7 +27,7 @@ npm run dev
 Open the address it prints (usually http://localhost:5173). The camera works on `localhost`,
 and in the scanner you can also type a barcode by hand, e.g. `3017620422003` (Nutella).
 
-`npm test` runs the unit tests (the nutrition label parser).
+`npm test` runs the unit tests (the nutrition label parser and the calorie calculator).
 
 `npm run build` makes the production version in `dist/`, and `npm run preview` serves it
 (this is the version that includes the offline service worker).
@@ -65,13 +67,17 @@ the first open downloads the new version in the background).
 ```
 index.html                 the single HTML page
 vite.config.ts             build setup + PWA manifest and service worker
+scripts/copy-tesseract.mjs copies the OCR engine into public/ before dev and build
 src/
   main.tsx                 starts React
-  App.tsx                  which tab is open, which day and meal are selected
-  styles.css               all the styling (glass look, colours, dark mode)
-  types.ts                 the shapes of the data: Product, Entry, SavedMeal, WeightEntry, Targets
+  App.tsx                  which tab is open, which day and meal are selected, onboarding
+  theme.css                design tokens: every colour, radius, spacing step, font size
+  styles.css               component styles, built only from the tokens in theme.css
+  types.ts                 the shapes of the data: Product, Entry, SavedMeal, WeightEntry, Profile
   db.ts                    the local database (Dexie / IndexedDB), its versions and helper functions
   api.ts                   barcode lookup and name search (local cache first, then Open Food Facts)
+  calculator.ts            calorie and macro suggestion from your profile
+  calculator.test.ts       unit tests for the calculator
   labelParser.ts           turns OCR text from a nutrition label into per-100g values
   labelParser.test.ts      unit tests for the parser (Dutch, English and messy OCR samples)
   image.ts                 crops a photo and prepares it for OCR (resize, grayscale, contrast)
@@ -79,10 +85,15 @@ src/
   backup.ts                export / import of the JSON backup
   utils.ts                 small helpers: dates, meals, macro maths, number parsing
   components/
+    Button.tsx             the one button: variants, sizes and layouts
+    Icon.tsx               the one icon set
+    Segmented.tsx          "pick one of these" control
+    Sheet.tsx              glass panel that slides up from the bottom
+    MealPicker.tsx  MacroTiles.tsx  MacroBar.tsx  CalorieRing.tsx  TabBar.tsx   small building blocks
     TodayScreen.tsx        ring, macro bars, the four meals, day navigation
     EntrySheet.tsx         edit or delete a logged food
-    AddScreen.tsx          meal picker, Scan / Search / manual, recents, favourites, saved meals
-    Scanner.tsx            the camera view (@zxing/browser)
+    AddScreen.tsx          meal picker, Scan / Search / Scan label / Manual, recents, favourites, meals
+    Scanner.tsx            the barcode camera view (@zxing/browser), with the flashlight
     SearchSheet.tsx        search by name
     LabelScanner.tsx       label photo: crop, read, "nothing readable" (loaded on demand)
     CropBox.tsx            the draggable crop rectangle
@@ -91,36 +102,37 @@ src/
     SavedMeals.tsx         saved meals list + "save as meal" sheet
     HistoryScreen.tsx      week/month view, averages, protein streak
     BarChart.tsx           the daily calories chart (plain HTML + CSS)
-    WeightCard.tsx         weight entry + line chart (plain SVG)
-    SettingsScreen.tsx     daily targets and backup
-    CalorieRing.tsx  MacroBar.tsx  MealPicker.tsx  Sheet.tsx  TabBar.tsx   small building blocks
+    WeightCard.tsx         weight entry + line chart; offers new targets when your weight changes
+    SettingsScreen.tsx     profile, daily targets and backup
+    Onboarding.tsx         first-launch questions and the suggested targets
 ```
 
-## How label scanning works
+## The design system
 
-1. "Scan label" opens the camera through a hidden file input (the most reliable way on iOS).
-2. You crop the photo to the nutrition table (`CropBox.tsx`).
-3. `image.ts` resizes the crop, makes it grayscale and stretches the contrast.
-4. `ocr.ts` reads the text with Tesseract.js, using Dutch and English.
-5. `labelParser.ts` finds the energy, protein, carbohydrate and fat rows and takes the
-   per-100g column. It allows for typos in the words, skips "waarvan / of which" rows,
-   and repairs common OCR mistakes, such as the "g" after a number being read as a "9".
-6. The form opens with the values filled in. Nothing is saved until you tap Save.
+Everything visual is built from two files and four components:
 
-The Tesseract engine and language files (about 10 MB) are copied from `node_modules` into
-`public/tesseract` by `scripts/copy-tesseract.mjs` when you run `npm run dev` or
-`npm run build`, so the app serves them itself. They are only downloaded on the first label
-scan and then kept on the phone, so later scans work offline.
+- `src/theme.css` holds the tokens: colours for light and dark mode, corner radii, spacing
+  steps, font sizes and animation curves. To change a colour, change it there and nowhere else.
+- `src/styles.css` holds the component styles. It never uses a raw colour, only tokens.
+- `Button`, `Icon`, `Segmented` and `Sheet` are used on every screen. A new screen should be
+  built from these plus the shared classes `card`, `row`, `input`, `field`, `tiles` and `label`,
+  not from new one-off styles.
 
-If a label is read wrongly, the best fix is to add the text Tesseract produced as a new test
-in `labelParser.test.ts`, then change the parser until `npm test` passes.
+Some colours come in two versions, for example `--accent` and `--accent-text`. The first is for
+shapes (the ring, bars, fills). The second is darker in light mode, so that small text in that
+colour stays readable.
 
-## Changing the database
+## How the calorie suggestion works
 
-The tables are declared in `src/db.ts`. Never edit an existing `this.version(n)` block:
-phones that already have the app would not be upgraded. Instead add a new
-`this.version(n + 1)` block with only the tables that change, plus an `.upgrade()` function
-if existing rows need new values. Version 2 (meals, saved meals, weight) is the example to copy.
+`src/calculator.ts` does this, in order:
+
+1. BMR (calories at rest) with the Mifflin-St Jeor formula.
+2. Times an activity factor (1.2 to 1.9) gives maintenance calories.
+3. Adjust for the goal: lose weight -20%, build muscle +10%, recomposition -10%, maintain 0%.
+4. Protein from body weight (1.6 to 2.2 g per kg), fat 25-30% of calories, carbs the rest.
+
+Two safety rules: a deficit never goes below 1200 kcal (women) or 1500 kcal (men), and no
+deficit is applied under 18. The numbers are estimates, not medical advice.
 
 How data flows: screens read from the database with `useLiveQuery`, which re-renders them
 automatically whenever the data changes. To change something, a component calls a function

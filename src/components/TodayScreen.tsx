@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { copyMealFromDayBefore, db, DEFAULT_TARGETS, entriesForMeal, getTargets } from '../db'
 import type { Entry, Meal } from '../types'
 import { fmt, formatDay, MEAL_LABELS, MEALS, shiftDay, sumMacros, todayKey } from '../utils'
+import Button from './Button'
 import CalorieRing from './CalorieRing'
 import EntrySheet from './EntrySheet'
 import MacroBar from './MacroBar'
@@ -28,21 +29,22 @@ export default function TodayScreen({ date, setDate, onAddTo, onToast }: Props) 
 
   return (
     <>
-      <header className="day-nav">
-        <button className="icon-button glass" onClick={() => setDate(shiftDay(date, -1))} aria-label="Previous day">
-          ‹
-        </button>
-        <button className="day-title" onClick={() => setDate(todayKey())}>
+      <header className="page-head">
+        {/* Tapping the title jumps back to today. */}
+        <button className="page-title" onClick={() => setDate(todayKey())}>
           {formatDay(date)}
         </button>
-        <button
-          className="icon-button glass"
-          onClick={() => setDate(shiftDay(date, 1))}
-          disabled={isToday}
-          aria-label="Next day"
-        >
-          ›
-        </button>
+        <div className="head-actions">
+          <Button variant="glass" layout="round" icon="back" onClick={() => setDate(shiftDay(date, -1))} aria-label="Previous day" />
+          <Button
+            variant="glass"
+            layout="round"
+            icon="forward"
+            onClick={() => setDate(shiftDay(date, 1))}
+            disabled={isToday}
+            aria-label="Next day"
+          />
+        </div>
       </header>
 
       <section className="card glass">
@@ -107,31 +109,29 @@ function MealSection({ meal, date, entries, onAdd, onEdit, onSave, onToast }: Se
   return (
     <section className="meal">
       <div className="meal-head">
-        <h3 className="meal-title">{label}</h3>
+        <h2 className="meal-title">{label}</h2>
         <span className="muted meal-total">{Math.round(sumMacros(entries).kcal)} kcal</span>
         {entries.length > 0 && (
-          <button className="pill-button" onClick={onSave}>
+          <Button variant="glass" size="small" icon="bookmark" onClick={onSave}>
             Save
-          </button>
+          </Button>
         )}
-        <button className="icon-button small-add" onClick={onAdd} aria-label={`Add to ${label}`}>
-          +
-        </button>
+        <Button variant="primary" size="small" layout="round" icon="plus" onClick={onAdd} aria-label={`Add to ${label}`} />
       </div>
 
       {entries.length === 0 && dayBeforeCount > 0 && (
-        <button className="pill-button copy-button" onClick={copy}>
+        <Button variant="glass" size="small" icon="copy" className="meal-copy" onClick={copy}>
           Copy {date === todayKey() ? 'yesterday’s' : 'previous day’s'} {label.toLowerCase()}
-        </button>
+        </Button>
       )}
 
       {entries.map((entry) => (
-        <button className="entry glass" key={entry.id} onClick={() => onEdit(entry)}>
-          <div className="entry-main">
-            <div className="entry-name">{entry.name}</div>
+        <button className="row glass" key={entry.id} onClick={() => onEdit(entry)}>
+          <div className="row-main">
+            <div className="row-title">{entry.name}</div>
             <div className="muted">{fmt(entry.grams)} g</div>
           </div>
-          <div className="entry-kcal">
+          <div className="row-value">
             {Math.round(entry.kcal)} <span className="muted">kcal</span>
           </div>
         </button>

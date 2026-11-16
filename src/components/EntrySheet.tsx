@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { deleteEntry, updateEntry } from '../db'
 import type { Entry } from '../types'
 import { fmt, parseNumber } from '../utils'
+import Button from './Button'
 import MealPicker from './MealPicker'
 import Sheet from './Sheet'
 
@@ -34,9 +35,9 @@ export default function EntrySheet({ entry, onClose }: Props) {
   return (
     <Sheet title={entry.name} onClose={onClose}>
       <div className="label">Amount</div>
-      <div className="grams-row">
+      <div className="input-row">
         <input
-          className="input grams-input"
+          className="input number amount-input"
           inputMode="decimal"
           value={gramsText}
           onChange={(e) => setGramsText(e.target.value)}
@@ -47,14 +48,16 @@ export default function EntrySheet({ entry, onClose }: Props) {
       </div>
 
       <div className="label">Meal</div>
-      <MealPicker meal={meal} setMeal={setMeal} />
+      <MealPicker meal={meal} setMeal={setMeal} inset />
 
-      <button className="button big" onClick={save} disabled={!valid}>
-        Save
-      </button>
-      <button className="button danger" onClick={remove}>
-        Delete entry
-      </button>
+      <div className="sheet-actions">
+        <Button variant="primary" block onClick={save} disabled={!valid}>
+          Save
+        </Button>
+        <Button variant="danger" block onClick={remove}>
+          Delete entry
+        </Button>
+      </div>
     </Sheet>
   )
 }

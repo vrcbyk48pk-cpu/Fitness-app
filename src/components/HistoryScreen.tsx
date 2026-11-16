@@ -4,14 +4,24 @@ import { db, DEFAULT_TARGETS, getTargets, proteinStreak } from '../db'
 import type { Macros } from '../types'
 import { dayList, daysInMonth, fmt, keyToDate, shiftDay, startOfMonth, startOfWeek, sumMacros, todayKey } from '../utils'
 import BarChart from './BarChart'
+import Button from './Button'
+import MacroTiles from './MacroTiles'
+import Segmented from './Segmented'
 import WeightCard from './WeightCard'
+
+type Mode = 'week' | 'month'
+
+const MODES: { value: Mode; label: string }[] = [
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+]
 
 interface Props {
   onOpenDay: (day: string) => void
 }
 
 export default function HistoryScreen({ onOpenDay }: Props) {
-  const [mode, setMode] = useState<'week' | 'month'>('week')
+  const [mode, setMode] = useState<Mode>('week')
   // Any day inside the period that is shown. Starts at the current week/month.
   const [anchor, setAnchor] = useState(todayKey())
 
@@ -45,59 +55,38 @@ export default function HistoryScreen({ onOpenDay }: Props) {
   return (
     <>
       <header className="page-head">
-        <h1>History</h1>
+        <h1 className="page-title">History</h1>
       </header>
 
-      <div className="segmented glass no-top">
-        <button className={mode === 'week' ? 'active' : ''} onClick={() => setMode('week')}>
-          Week
-        </button>
-        <button className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')}>
-          Month
-        </button>
-      </div>
+      <Segmented options={MODES} value={mode} onChange={setMode} />
 
-      <section className="card glass">
+      <section className="card glass" style={{ marginTop: 'var(--space-3)' }}>
         <div className="period-nav">
-          <button className="icon-button" onClick={() => setAnchor(shiftDay(from, -1))} aria-label="Previous period">
-            ‹
-          </button>
+          <Button layout="round" size="small" icon="back" onClick={() => setAnchor(shiftDay(from, -1))} aria-label="Previous period" />
           <button className="period-title" onClick={() => setAnchor(todayKey())}>
             {title}
           </button>
-          <button
-            className="icon-button"
+          <Button
+            layout="round"
+            size="small"
+            icon="forward"
             onClick={() => setAnchor(shiftDay(to, 1))}
             disabled={to >= todayKey()}
             aria-label="Next period"
-          >
-            ›
-          </button>
+          />
         </div>
 
         {/* key = restart the grow animation when the period changes */}
         <BarChart key={from + mode} days={days} kcalByDay={kcalByDay} target={targets.kcal} onSelect={onOpenDay} />
 
         <div>
-          <div className="label first">Daily average</div>
-          <div className="macro-grid">
-            <div className="tile" style={{ color: 'var(--mint-text)' }}>
-              <b>{Math.round(average(sum.kcal))}</b>
-              <span>kcal</span>
-            </div>
-            <div className="tile" style={{ color: 'var(--protein)' }}>
-              <b>{fmt(average(sum.protein))} g</b>
-              <span>protein</span>
-            </div>
-            <div className="tile" style={{ color: 'var(--carbs-text)' }}>
-              <b>{fmt(average(sum.carbs))} g</b>
-              <span>carbs</span>
-            </div>
-            <div className="tile" style={{ color: 'var(--fat)' }}>
-              <b>{fmt(average(sum.fat))} g</b>
-              <span>fat</span>
-            </div>
-          </div>
+          <div className="label">Daily average</div>
+          <MacroTiles
+            kcal={average(sum.kcal)}
+            protein={average(sum.protein)}
+            carbs={average(sum.carbs)}
+            fat={average(sum.fat)}
+          />
           <p className="muted chart-note">
             {logged === 0
               ? 'Nothing logged in this period.'

@@ -1,0 +1,146 @@
+/* ==========================================================================
+   Design tokens: every colour, radius, spacing step, font size and animation
+   curve used in the app. styles.css only ever refers to these variables.
+   ========================================================================== */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---------- Colours: light mode ---------- */
+  --bg: #dbf2fc; /* Seal Blue */
+  --text: #072d59; /* Navy: text, icons */
+  --text-2: #3d5a80; /* secondary text */
+
+  --accent: #fd6e88; /* Crimson Pink: ring, progress, highlights */
+  --accent-text: #a51c38; /* a darker crimson, readable as small text on light surfaces */
+
+  --primary: #072d59; /* primary buttons */
+  --on-primary: #dbf2fc; /* text on primary buttons */
+
+  /* Macros. The "-text" versions are darker, for small coloured text. */
+  --protein: #2f7de1;
+  --protein-text: #1b5cb5;
+  --on-protein: #ffffff;
+  --carbs: #ffb36b;
+  --carbs-text: #8c4a00;
+  --fat: #9b8cff;
+  --fat-text: #5441cc;
+
+  --over: #a51c38; /* bars and ring when over the target */
+
+  /* Fixed colours that are the same in both modes */
+  --on-accent: #072d59; /* icons on a crimson background */
+  --photo-bg: #ffffff; /* behind product photos, which are shot on white */
+  --camera-bg: #000000; /* behind the live camera picture */
+  --camera-line: rgba(255, 255, 255, 0.92); /* frames drawn over a photo or the camera */
+  --camera-dim: rgba(0, 0, 0, 0.48); /* darkens the picture outside a frame */
+  --camera-shadow: rgba(0, 0, 0, 0.55);
+  --button-shine: rgba(255, 255, 255, 0.28); /* top highlight on primary buttons */
+
+  /* The blurred blobs behind the glass */
+  --blob-1: #6db6ee;
+  --blob-2: #3c8fdc;
+  --blob-3: #fd9db0;
+  --blob-opacity: 0.55;
+
+  /* ---------- Glass surfaces ---------- */
+  --glass: rgba(255, 255, 255, 0.46); /* cards, rows, tab bar */
+  --glass-strong: rgba(236, 248, 254, 0.8); /* sheets: more opaque, for readability */
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-highlight: rgba(255, 255, 255, 0.95); /* the bright line along the top edge */
+  --glass-shadow: rgba(7, 45, 89, 0.13);
+  --glass-blur: blur(26px) saturate(180%);
+  --fill: rgba(7, 45, 89, 0.07); /* inputs, quiet buttons, tracks */
+  --fill-strong: rgba(7, 45, 89, 0.13);
+  --scrim: rgba(4, 27, 54, 0.32); /* the dimmed layer behind a sheet */
+
+  /* ---------- Corner radius ---------- */
+  --radius-s: 14px; /* tiles, images */
+  --radius-m: 22px; /* rows, stacked buttons */
+  --radius-l: 28px; /* cards */
+  --radius-xl: 34px; /* sheets */
+  --radius-pill: 999px; /* buttons, inputs, bars */
+
+  /* ---------- Spacing ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 28px;
+
+  /* ---------- Font sizes ---------- */
+  --font-caption: 12px;
+  --font-small: 14px;
+  --font-body: 16px;
+  --font-input: 17px; /* 16px or more stops iOS zooming in on focus */
+  --font-headline: 19px;
+  --font-title: 22px;
+  --font-large-title: 34px;
+  --font-display: 46px; /* the number in the ring */
+
+  /* ---------- Control sizes ---------- */
+  --control: 50px; /* regular buttons and inputs */
+  --control-small: 36px;
+
+  /* ---------- Motion ---------- */
+  --spring: cubic-bezier(0.3, 1.36, 0.45, 1); /* overshoots slightly, like a spring */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 0.18s;
+  --normal: 0.42s;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---------- Colours: dark mode ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #041b36;
+    --text: #dbf2fc;
+    --text-2: #8fb3d9;
+
+    --accent: #fd6e88;
+    --accent-text: #ff94a8; /* a little lighter, for small text on dark glass */
+
+    --primary: #fd6e88;
+    --on-primary: #041b36;
+
+    --protein: #5ba0f2;
+    --protein-text: #82b8f6;
+    --on-protein: #041b36;
+    --carbs: #ffb36b;
+    --carbs-text: #ffb36b;
+    --fat: #9b8cff;
+    --fat-text: #a99cff;
+
+    --over: #ffb9c5;
+
+    --blob-1: #1a5fb4;
+    --blob-2: #0e4a94;
+    --blob-3: #fd6e88;
+    --blob-opacity: 0.34;
+
+    --glass: rgba(219, 242, 252, 0.08);
+    --glass-strong: rgba(9, 37, 71, 0.8);
+    --glass-border: rgba(219, 242, 252, 0.14);
+    --glass-highlight: rgba(219, 242, 252, 0.26);
+    --glass-shadow: rgba(0, 0, 0, 0.4);
+    --fill: rgba(219, 242, 252, 0.09);
+    --fill-strong: rgba(219, 242, 252, 0.17);
+    --scrim: rgba(0, 8, 20, 0.55);
+  }
+}
+
+/* On top of the live camera picture everything is white-on-dark, in both modes. */
+.on-camera {
+  --text: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.78);
+  --glass: rgba(255, 255, 255, 0.2);
+  --glass-border: rgba(255, 255, 255, 0.28);
+  --glass-highlight: rgba(255, 255, 255, 0.45);
+  --glass-shadow: rgba(0, 0, 0, 0.3);
+  --primary: #ffffff;
+  --on-primary: #072d59;
+  color: var(--text);
+}

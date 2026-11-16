@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { type LookupResult, saveDraft, searchProducts, searchSaved } from '../api'
 import type { Product, ProductDraft } from '../types'
+import Button from './Button'
+import Icon from './Icon'
 import Sheet from './Sheet'
 
 interface Props {
@@ -37,7 +39,7 @@ export default function SearchSheet({ onClose, onResult }: Props) {
 
   return (
     <Sheet title="Search" onClose={onClose}>
-      <form className="search-form" onSubmit={search}>
+      <form className="input-row" onSubmit={search}>
         <input
           className="input"
           type="search"
@@ -47,12 +49,12 @@ export default function SearchSheet({ onClose, onResult }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button className="button small" type="submit" disabled={status === 'loading'}>
-          {status === 'loading' ? '…' : 'Search'}
-        </button>
+        <Button variant="primary" layout="round" icon="search" type="submit" disabled={status === 'loading'} aria-label="Search" />
       </form>
 
       <div className="search-results">
+        {status === 'loading' && <p className="empty">Searching…</p>}
+
         {saved.length > 0 && <div className="label">Your foods</div>}
         {saved.map((p) => (
           <ResultRow key={p.id} item={p} onClick={() => onResult({ status: 'found', product: p })} />
@@ -76,14 +78,16 @@ export default function SearchSheet({ onClose, onResult }: Props) {
 
 function ResultRow({ item, onClick }: { item: ProductDraft; onClick: () => void }) {
   return (
-    <button className="result-row" onClick={onClick}>
+    <button className="row plain" onClick={onClick}>
       {item.imageUrl ? (
-        <img className="result-image" src={item.imageUrl} alt="" loading="lazy" />
+        <img className="thumb" src={item.imageUrl} alt="" loading="lazy" />
       ) : (
-        <div className="result-image placeholder">🍽️</div>
+        <div className="thumb placeholder">
+          <Icon name="food" />
+        </div>
       )}
-      <div className="entry-main">
-        <div className="entry-name">{item.name}</div>
+      <div className="row-main">
+        <div className="row-title">{item.name}</div>
         <div className="muted">{item.brand ?? 'No brand'}</div>
       </div>
       <div className="result-kcal">

@@ -31,8 +31,8 @@ export default function CalorieRing({ eaten, target }: Props) {
       </svg>
       <div className="ring-text">
         <div className="ring-number">{Math.round(eaten)}</div>
-        <div className="ring-sub">of {Math.round(target)} kcal</div>
-        <div className={over ? 'ring-left over' : 'ring-left'}>
+        <div className="muted">of {Math.round(target)} kcal</div>
+        <div className="ring-left">
           {over ? `${-left} over` : `${left} left`}
         </div>
       </div>

@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addEntry, db, setFavourite } from '../db'
 import type { Meal, Product } from '../types'
-import { fmt, formatDay, macrosFor, parseNumber } from '../utils'
+import { formatDay, macrosFor, parseNumber } from '../utils'
+import Button from './Button'
+import Icon from './Icon'
+import MacroTiles from './MacroTiles'
 import MealPicker from './MealPicker'
 import Sheet from './Sheet'
 
@@ -16,7 +19,7 @@ interface Props {
 
 const QUICK_GRAMS = [50, 100, 150, 200]
 
-// Shows a product, lets you pick the grams, and logs it.
+// Shows a product, lets you pick the grams and the meal, and logs it.
 export default function ProductSheet({ product, date, meal: initialMeal, onClose, onAdded }: Props) {
   const [meal, setMeal] = useState(initialMeal)
   const [gramsText, setGramsText] = useState(String(product.lastGrams))
@@ -25,7 +28,6 @@ export default function ProductSheet({ product, date, meal: initialMeal, onClose
 
   const grams = parseNumber(gramsText)
   const valid = grams !== null && grams > 0
-  const eaten = macrosFor(product, valid ? grams : 0)
 
   async function add() {
     if (!valid) return
@@ -37,30 +39,32 @@ export default function ProductSheet({ product, date, meal: initialMeal, onClose
     <Sheet title="Add food" onClose={onClose}>
       <div className="product-head">
         {product.imageUrl ? (
-          <img className="product-image" src={product.imageUrl} alt="" />
+          <img className="thumb large" src={product.imageUrl} alt="" />
         ) : (
-          <div className="product-image placeholder">🍽️</div>
+          <div className="thumb large placeholder">
+            <Icon name="food" size={30} />
+          </div>
         )}
-        <div className="product-info">
+        <div className="row-main">
           <div className="product-name">{product.name}</div>
           {product.brand && <div className="muted">{product.brand}</div>}
         </div>
-        <button
-          className={favourite ? 'icon-button star on' : 'icon-button star'}
+        <Button
+          layout="round"
+          icon={favourite ? 'starFilled' : 'star'}
+          className={favourite ? 'is-favourite' : ''}
           onClick={() => setFavourite(product.id, !favourite)}
           aria-label={favourite ? 'Remove from favourites' : 'Add to favourites'}
-        >
-          {favourite ? '★' : '☆'}
-        </button>
+        />
       </div>
 
       <div className="label">Per 100 g</div>
-      <MacroGrid kcal={product.kcal} protein={product.protein} carbs={product.carbs} fat={product.fat} />
+      <MacroTiles {...product} />
 
       <div className="label">Amount</div>
-      <div className="grams-row">
+      <div className="input-row">
         <input
-          className="input grams-input"
+          className="input number amount-input"
           inputMode="decimal"
           value={gramsText}
           onChange={(e) => setGramsText(e.target.value)}
@@ -69,51 +73,25 @@ export default function ProductSheet({ product, date, meal: initialMeal, onClose
         />
         <span className="muted">grams</span>
       </div>
-      <div className="chips">
+      <div className="quick-row">
         {QUICK_GRAMS.map((g) => (
-          <button
-            key={g}
-            className={grams === g ? 'chip active' : 'chip'}
-            onClick={() => setGramsText(String(g))}
-          >
+          <Button key={g} size="small" variant={grams === g ? 'primary' : 'quiet'} onClick={() => setGramsText(String(g))}>
             {g} g
-          </button>
+          </Button>
         ))}
       </div>
 
       <div className="label">Meal</div>
-      <MealPicker meal={meal} setMeal={setMeal} />
+      <MealPicker meal={meal} setMeal={setMeal} inset />
 
       <div className="label">This portion</div>
-      <MacroGrid kcal={eaten.kcal} protein={eaten.protein} carbs={eaten.carbs} fat={eaten.fat} />
+      <MacroTiles {...macrosFor(product, valid ? grams : 0)} />
 
-      <button className="button big" onClick={add} disabled={!valid}>
-        Add to {formatDay(date).toLowerCase()}
-      </button>
+      <div className="sheet-actions">
+        <Button variant="primary" block onClick={add} disabled={!valid}>
+          Add to {formatDay(date).toLowerCase()}
+        </Button>
+      </div>
     </Sheet>
-  )
-}
-
-// Four small coloured tiles: kcal, protein, carbs, fat.
-function MacroGrid(props: { kcal: number; protein: number; carbs: number; fat: number }) {
-  return (
-    <div className="macro-grid">
-      <div className="tile" style={{ color: 'var(--mint-text)' }}>
-        <b>{Math.round(props.kcal)}</b>
-        <span>kcal</span>
-      </div>
-      <div className="tile" style={{ color: 'var(--protein)' }}>
-        <b>{fmt(props.protein)} g</b>
-        <span>protein</span>
-      </div>
-      <div className="tile" style={{ color: 'var(--carbs-text)' }}>
-        <b>{fmt(props.carbs)} g</b>
-        <span>carbs</span>
-      </div>
-      <div className="tile" style={{ color: 'var(--fat)' }}>
-        <b>{fmt(props.fat)} g</b>
-        <span>fat</span>
-      </div>
-    </div>
   )
 }

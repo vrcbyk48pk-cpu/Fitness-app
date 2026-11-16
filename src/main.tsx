@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import './theme.css'
 import './styles.css'
 
 // Ask the browser not to clear our data when the phone runs low on space.

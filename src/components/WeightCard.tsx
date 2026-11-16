@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, deleteWeight, saveWeight } from '../db'
-import type { WeightEntry } from '../types'
+import { suggestTargets } from '../calculator'
+import { db, deleteWeight, getProfile, getTargets, saveProfile, saveTargets, saveWeight } from '../db'
+import type { Targets, WeightEntry } from '../types'
 import { formatDay, keyToDate, parseNumber, shiftDay, todayKey } from '../utils'
+import Button from './Button'
+import Sheet from './Sheet'
 
 const DAYS_SHOWN = 90
 
@@ -47,6 +50,8 @@ function daysBetween(a: string, b: string): number {
 export default function WeightCard() {
   const weights = useLiveQuery(() => db.weights.orderBy('date').toArray()) ?? []
   const [text, setText] = useState('')
+  // Set when a new weight leads to different suggested targets: we ask before changing them.
+  const [offer, setOffer] = useState<{ kg: number; current: Targets; suggested: Targets } | null>(null)
 
   const today = todayKey()
   const latest = weights[weights.length - 1]
@@ -58,6 +63,16 @@ export default function WeightCard() {
     if (!valid) return
     await saveWeight(today, kg)
     setText('')
+
+    // If there is a profile, the calorie suggestion depends on the weight.
+    const profile = await getProfile()
+    if (!profile || profile.weightKg === kg) return
+    const updated = { ...profile, weightKg: kg }
+    await saveProfile(updated)
+    const current = await getTargets()
+    const suggested = suggestTargets(updated).targets
+    const changed = (Object.keys(suggested) as (keyof Targets)[]).some((key) => suggested[key] !== current[key])
+    if (changed) setOffer({ kg, current, suggested })
   }
 
   // ----- Chart data: the last 90 days -----
@@ -78,9 +93,9 @@ export default function WeightCard() {
 
   return (
     <>
-      <h3 className="section-title">Weight</h3>
+      <h2 className="section-title">Weight</h2>
       <section className="card glass">
-        <form className="weight-form" onSubmit={save}>
+        <form className="input-row" onSubmit={save}>
           <input
             className="input"
             inputMode="decimal"
@@ -89,20 +104,20 @@ export default function WeightCard() {
             onChange={(e) => setText(e.target.value)}
             aria-label="Weight in kg"
           />
-          <button className="button small" type="submit" disabled={!valid}>
+          <Button variant="primary" type="submit" disabled={!valid}>
             Log today
-          </button>
+          </Button>
         </form>
 
         {latest && (
-          <div className="weight-stats">
-            <div>
+          <div className="stat-row">
+            <div className="tile">
               <b>{latest.kg.toFixed(1)} kg</b>
-              <span className="muted">latest · {formatDay(latest.date)}</span>
+              <span>latest · {formatDay(latest.date)}</span>
             </div>
-            <div>
-              <b style={{ color: 'var(--protein)' }}>{sevenDayAverage(weights, latest.date).toFixed(1)} kg</b>
-              <span className="muted">7-day average</span>
+            <div className="tile">
+              <b style={{ color: 'var(--protein-text)' }}>{sevenDayAverage(weights, latest.date).toFixed(1)} kg</b>
+              <span>7-day average</span>
             </div>
           </div>
         )}
@@ -120,12 +135,14 @@ export default function WeightCard() {
               {/* pathLength=1 lets the CSS animation "draw" the line from left to right */}
               <path className="weight-average-line" d={smoothPath(averagePoints)} pathLength={1} />
             </svg>
-            <div className="weight-legend muted">
+            <div className="legend">
               <span>
-                <i style={{ background: 'var(--mint)' }} /> Daily
+                <i className="dot" style={{ background: 'var(--accent)' }} />
+                Daily
               </span>
               <span>
-                <i style={{ background: 'var(--protein)' }} /> 7-day average
+                <i className="dot" style={{ background: 'var(--protein)' }} />
+                7-day average
               </span>
               <span>Last {DAYS_SHOWN} days</span>
             </div>
@@ -135,19 +152,65 @@ export default function WeightCard() {
         )}
 
         {/* The latest weigh-ins, newest first, each with a remove button. */}
-        {weights
-          .slice(-5)
-          .reverse()
-          .map((w) => (
-            <div className="plain-row" key={w.date}>
-              <span className="entry-main">{formatDay(w.date)}</span>
-              <b>{w.kg.toFixed(1)} kg</b>
-              <button className="icon-button remove" onClick={() => deleteWeight(w.date)} aria-label={`Remove ${w.date}`}>
-                ✕
-              </button>
-            </div>
-          ))}
+        <div>
+          {weights
+            .slice(-5)
+            .reverse()
+            .map((w) => (
+              <div className="row plain" key={w.date}>
+                <span className="row-main">{formatDay(w.date)}</span>
+                <b>{w.kg.toFixed(1)} kg</b>
+                <Button layout="round" size="small" icon="close" onClick={() => deleteWeight(w.date)} aria-label={`Remove ${w.date}`} />
+              </div>
+            ))}
+        </div>
       </section>
+
+      {offer && (
+        <Sheet title="Update your targets?" onClose={() => setOffer(null)}>
+          <p className="muted">
+            Your weight is now {offer.kg} kg, so the suggested targets changed. Your current targets stay as they are
+            unless you update them.
+          </p>
+          <div className="label">Current → suggested</div>
+          <div className="compare">
+            <Comparison label="Calories" unit="kcal" from={offer.current.kcal} to={offer.suggested.kcal} />
+            <Comparison label="Protein" unit="g" from={offer.current.protein} to={offer.suggested.protein} />
+            <Comparison label="Carbs" unit="g" from={offer.current.carbs} to={offer.suggested.carbs} />
+            <Comparison label="Fat" unit="g" from={offer.current.fat} to={offer.suggested.fat} />
+          </div>
+          <div className="sheet-actions">
+            <Button
+              variant="primary"
+              block
+              onClick={async () => {
+                await saveTargets(offer.suggested)
+                setOffer(null)
+              }}
+            >
+              Update targets
+            </Button>
+            <Button block onClick={() => setOffer(null)}>
+              Keep current targets
+            </Button>
+          </div>
+        </Sheet>
+      )}
+    </>
+  )
+}
+
+// One line of the "current -> suggested" table.
+function Comparison(props: { label: string; unit: string; from: number; to: number }) {
+  return (
+    <>
+      <span>{props.label}</span>
+      <span className="muted">
+        {Math.round(props.from)} {props.unit}
+      </span>
+      <b>
+        {Math.round(props.to)} {props.unit}
+      </b>
     </>
   )
 }

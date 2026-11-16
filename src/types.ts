@@ -62,3 +62,18 @@ export interface WeightEntry {
   date: string
   kg: number
 }
+
+// ---------- Profile (for the calorie goal calculator) ----------
+
+export type Goal = 'lose' | 'muscle' | 'recomp' | 'maintain'
+export type Sex = 'male' | 'female'
+export type Activity = 'sedentary' | 'light' | 'moderate' | 'very' | 'extreme'
+
+export interface Profile {
+  goal: Goal
+  sex: Sex
+  age: number // years
+  heightCm: number
+  weightKg: number
+  activity: Activity
+}
