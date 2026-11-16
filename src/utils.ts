@@ -1,4 +1,4 @@
-import type { Macros, Meal } from './types'
+import type { Extra, Macros, Meal, Nutrients } from './types'
 
 // Turns a Date into "YYYY-MM-DD" using the phone's local time zone.
 export function dateKey(date: Date): string {
@@ -35,15 +35,39 @@ export function formatDay(key: string): string {
   })
 }
 
-// Per-100g values -> values for the amount actually eaten.
-export function macrosFor(per100g: Macros, grams: number): Macros {
-  const factor = grams / 100
-  return {
-    kcal: per100g.kcal * factor,
-    protein: per100g.protein * factor,
-    carbs: per100g.carbs * factor,
-    fat: per100g.fat * factor,
+export const EXTRAS: Extra[] = ['fibre', 'sugar', 'salt']
+
+// Multiplies every nutrient by a factor. Unknown extras stay unknown.
+export function scaleNutrients(nutrients: Nutrients, factor: number): Nutrients {
+  const scaled: Nutrients = {
+    kcal: nutrients.kcal * factor,
+    protein: nutrients.protein * factor,
+    carbs: nutrients.carbs * factor,
+    fat: nutrients.fat * factor,
   }
+  for (const key of EXTRAS) {
+    const value = nutrients[key]
+    if (value !== undefined) scaled[key] = value * factor
+  }
+  return scaled
+}
+
+// Per-100g values -> values for the amount actually eaten.
+export function nutrientsFor(per100g: Nutrients, grams: number): Nutrients {
+  return scaleNutrients(per100g, grams / 100)
+}
+
+// Adds up one of the extras (fibre, sugar or salt) over a list of foods.
+// Foods without a value are not counted as 0: they are reported as "unknown".
+export function sumExtra(items: Nutrients[], key: Extra): { total: number; unknown: number } {
+  let total = 0
+  let unknown = 0
+  for (const item of items) {
+    const value = item[key]
+    if (value === undefined) unknown++
+    else total += value
+  }
+  return { total, unknown }
 }
 
 export function sumMacros(items: Macros[]): Macros {

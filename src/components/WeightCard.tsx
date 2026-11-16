@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { suggestTargets } from '../calculator'
 import { db, deleteWeight, getProfile, getTargets, saveProfile, saveTargets, saveWeight } from '../db'
-import type { Targets, WeightEntry } from '../types'
+import type { Macros, WeightEntry } from '../types'
 import { formatDay, keyToDate, parseNumber, shiftDay, todayKey } from '../utils'
 import Button from './Button'
 import Sheet from './Sheet'
@@ -51,7 +51,7 @@ export default function WeightCard() {
   const weights = useLiveQuery(() => db.weights.orderBy('date').toArray()) ?? []
   const [text, setText] = useState('')
   // Set when a new weight leads to different suggested targets: we ask before changing them.
-  const [offer, setOffer] = useState<{ kg: number; current: Targets; suggested: Targets } | null>(null)
+  const [offer, setOffer] = useState<{ kg: number; current: Macros; suggested: Macros } | null>(null)
 
   const today = todayKey()
   const latest = weights[weights.length - 1]
@@ -71,7 +71,7 @@ export default function WeightCard() {
     await saveProfile(updated)
     const current = await getTargets()
     const suggested = suggestTargets(updated).targets
-    const changed = (Object.keys(suggested) as (keyof Targets)[]).some((key) => suggested[key] !== current[key])
+    const changed = (Object.keys(suggested) as (keyof Macros)[]).some((key) => suggested[key] !== current[key])
     if (changed) setOffer({ kg, current, suggested })
   }
 

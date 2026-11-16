@@ -1,24 +1,25 @@
 import Dexie, { type Table } from 'dexie'
-import type { Entry, Meal, Product, Profile, SavedMeal, Targets, WeightEntry } from './types'
-import { macrosFor, mealForTime, shiftDay, todayKey } from './utils'
+import type { SettingRow } from './backupData'
+import { prepProductId, toProduct } from './mealPrep'
+import type { Entry, Meal, MealPrep, Product, Profile, SavedMeal, Targets, WeightEntry } from './types'
+import { mealForTime, nutrientsFor, scaleNutrients, shiftDay, todayKey } from './utils'
 
-// One row in the settings table. The keys in use:
+// The settings table holds one row per key:
 //   "targets"           -> Targets (daily goals)
 //   "profile"           -> Profile (answers from the onboarding)
 //   "onboardingSkipped" -> true
-//   "goalPromptDismissed" -> true (tapped "Not now" on the target weight question)
-interface Setting {
-  key: string
-  value: unknown
-}
+//   "paceAsked"         -> true (tapped "Not now" on the pace question)
+//   "lastBackup"        -> timestamp of the last backup made on this phone
+//   "backupBannerDismissed" -> timestamp of when the backup reminder was closed
 
 // The local database (IndexedDB, via Dexie). Everything stays on the phone.
 class AppDatabase extends Dexie {
   products!: Table<Product, string>
   entries!: Table<Entry, number>
-  settings!: Table<Setting, string>
+  settings!: Table<SettingRow, string>
   savedMeals!: Table<SavedMeal, number>
   weights!: Table<WeightEntry, string>
+  mealPreps!: Table<MealPrep, string>
 
   constructor() {
     super('calorie-tracker')
@@ -48,38 +49,62 @@ class AppDatabase extends Dexie {
             if (!entry.meal) entry.meal = mealForTime(new Date(entry.createdAt))
           }),
       )
+
+    // Version 3: meal preps, and fibre / sugar / salt.
+    // The new nutrient fields are optional, so existing products and entries need no change:
+    // a missing value simply means "unknown". Only the saved targets get a fibre goal.
+    this.version(3)
+      .stores({
+        mealPreps: 'id',
+      })
+      .upgrade((tx) =>
+        tx
+          .table('settings')
+          .where('key')
+          .equals('targets')
+          .modify((row) => {
+            if (row.value.fibre === undefined) row.value.fibre = DEFAULT_TARGETS.fibre
+          }),
+      )
   }
 }
 
 export const db = new AppDatabase()
 
-// ---------- Targets ----------
+// ---------- Settings ----------
 
-export const DEFAULT_TARGETS: Targets = { kcal: 2200, protein: 130, carbs: 250, fat: 70 }
-
-export async function getTargets(): Promise<Targets> {
-  const row = await db.settings.get('targets')
-  return (row?.value as Targets | undefined) ?? DEFAULT_TARGETS
+async function getSetting<T>(key: string): Promise<T | undefined> {
+  return (await db.settings.get(key))?.value as T | undefined
 }
 
-export async function saveTargets(targets: Targets): Promise<void> {
-  await db.settings.put({ key: 'targets', value: targets })
+async function setSetting(key: string, value: unknown): Promise<void> {
+  await db.settings.put({ key, value })
+}
+
+export const DEFAULT_TARGETS: Targets = { kcal: 2200, protein: 130, carbs: 250, fat: 70, fibre: 30 }
+
+export async function getTargets(): Promise<Targets> {
+  // Defaults first, so anything missing from the saved targets is filled in.
+  return { ...DEFAULT_TARGETS, ...(await getSetting<Partial<Targets>>('targets')) }
+}
+
+// Saves some or all of the targets; the ones not mentioned keep their value.
+export async function saveTargets(targets: Partial<Targets>): Promise<void> {
+  await setSetting('targets', { ...(await getTargets()), ...targets })
+}
+
+export async function hasSavedTargets(): Promise<boolean> {
+  return (await db.settings.get('targets')) !== undefined
 }
 
 // ---------- Profile and onboarding ----------
 
 export async function getProfile(): Promise<Profile | null> {
-  const row = await db.settings.get('profile')
-  return (row?.value as Profile | undefined) ?? null
+  return (await getSetting<Profile>('profile')) ?? null
 }
 
-export async function saveProfile(profile: Profile): Promise<void> {
-  await db.settings.put({ key: 'profile', value: profile })
-}
-
-export async function skipOnboarding(): Promise<void> {
-  await db.settings.put({ key: 'onboardingSkipped', value: true })
-}
+export const saveProfile = (profile: Profile) => setSetting('profile', profile)
+export const skipOnboarding = () => setSetting('onboardingSkipped', true)
 
 // The onboarding is shown until it was either completed or skipped.
 export async function needsOnboarding(): Promise<boolean> {
@@ -87,12 +112,19 @@ export async function needsOnboarding(): Promise<boolean> {
   return rows.every((row) => row === undefined)
 }
 
-export async function goalPromptDismissed(): Promise<boolean> {
-  return (await db.settings.get('goalPromptDismissed')) !== undefined
-}
+export const paceAsked = async () => (await getSetting('paceAsked')) !== undefined
+export const dismissPaceQuestion = () => setSetting('paceAsked', true)
 
-export async function dismissGoalPrompt(): Promise<void> {
-  await db.settings.put({ key: 'goalPromptDismissed', value: true })
+// ---------- Backups ----------
+
+export const getLastBackup = () => getSetting<number>('lastBackup')
+export const setLastBackup = (timestamp: number) => setSetting('lastBackup', timestamp)
+export const getBackupBannerDismissed = () => getSetting<number>('backupBannerDismissed')
+export const dismissBackupBanner = () => setSetting('backupBannerDismissed', Date.now())
+
+// When the first food was logged, or undefined when nothing was logged yet.
+export async function firstUse(): Promise<number | undefined> {
+  return (await db.entries.orderBy(':id').first())?.createdAt
 }
 
 // ---------- Products ----------
@@ -108,30 +140,31 @@ export async function setFavourite(id: string, favourite: boolean): Promise<void
 // ---------- Entries ----------
 
 // Logs a product for a given day and meal, and remembers it as recently used.
-export async function addEntry(product: Product, grams: number, date: string, meal: Meal): Promise<void> {
+// "portions" is given when the amount was chosen in portions rather than grams.
+export async function addEntry(product: Product, grams: number, date: string, meal: Meal, portions?: number): Promise<void> {
   const now = Date.now()
   await db.entries.add({
+    ...nutrientsFor(product, grams),
     date,
     meal,
     productId: product.id,
     name: product.name,
     grams,
-    ...macrosFor(product, grams),
+    portions,
     createdAt: now,
   })
   await db.products.update(product.id, { lastUsed: now, lastGrams: grams })
 }
 
-// Changes the grams and/or the meal of an entry. The macros scale with the grams.
+// Changes the grams and/or the meal of an entry. All nutrients scale with the grams.
 export async function updateEntry(entry: Entry, grams: number, meal: Meal): Promise<void> {
   const factor = grams / entry.grams
   await db.entries.update(entry.id!, {
+    ...scaleNutrients(entry, factor),
     grams,
     meal,
-    kcal: entry.kcal * factor,
-    protein: entry.protein * factor,
-    carbs: entry.carbs * factor,
-    fat: entry.fat * factor,
+    // The portion count scales along, so "1 portion" becomes "1.5 portions".
+    portions: entry.portions === undefined ? undefined : entry.portions * factor,
   })
 }
 
@@ -144,11 +177,16 @@ export async function entriesForMeal(date: string, meal: Meal): Promise<Entry[]>
   return entries.filter((e) => e.meal === meal)
 }
 
+// Logs an earlier entry again, on another day and meal.
+// Leaving out "id" makes the database create a new row instead of overwriting the old one.
+export async function logAgain({ id: _id, ...entry }: Entry, date: string, meal: Meal): Promise<void> {
+  await db.entries.add({ ...entry, date, meal, createdAt: Date.now() })
+}
+
 // Copies one meal from the day before "date" into "date". Returns how many entries were copied.
 export async function copyMealFromDayBefore(date: string, meal: Meal): Promise<number> {
   const source = await entriesForMeal(shiftDay(date, -1), meal)
   const now = Date.now()
-  // Leaving out "id" makes the database create new rows instead of overwriting the old ones.
   await db.entries.bulkAdd(source.map(({ id: _id, ...rest }) => ({ ...rest, date, createdAt: now })))
   return source.length
 }
@@ -158,15 +196,8 @@ export async function copyMealFromDayBefore(date: string, meal: Meal): Promise<n
 export async function saveMeal(name: string, entries: Entry[]): Promise<void> {
   await db.savedMeals.add({
     name,
-    items: entries.map((e) => ({
-      productId: e.productId,
-      name: e.name,
-      grams: e.grams,
-      kcal: e.kcal,
-      protein: e.protein,
-      carbs: e.carbs,
-      fat: e.fat,
-    })),
+    // Keep what describes the food; drop what describes the moment it was eaten.
+    items: entries.map(({ id: _id, date: _date, meal: _meal, createdAt: _createdAt, ...item }) => item),
   })
 }
 
@@ -178,6 +209,29 @@ export async function logSavedMeal(saved: SavedMeal, date: string, meal: Meal): 
 
 export async function deleteSavedMeal(id: number): Promise<void> {
   await db.savedMeals.delete(id)
+}
+
+// ---------- Meal preps ----------
+
+// Saves a meal prep together with its product (the thing you log and find in search).
+// Entries logged earlier are not touched: they keep the values they were logged with.
+export async function saveMealPrep(prep: MealPrep): Promise<void> {
+  await db.transaction('rw', db.mealPreps, db.products, async () => {
+    const existing = await db.products.get(prepProductId(prep.id))
+    await db.mealPreps.put(prep)
+    await db.products.put(toProduct(prep, existing))
+  })
+}
+
+export async function deleteMealPrep(id: string): Promise<void> {
+  await db.transaction('rw', db.mealPreps, db.products, async () => {
+    await db.mealPreps.delete(id)
+    await db.products.delete(prepProductId(id))
+  })
+}
+
+export async function duplicateMealPrep(prep: MealPrep): Promise<void> {
+  await saveMealPrep({ ...prep, id: crypto.randomUUID(), name: `${prep.name} (copy)`, updatedAt: Date.now() })
 }
 
 // ---------- Weight ----------

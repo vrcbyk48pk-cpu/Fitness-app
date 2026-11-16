@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  bestPace,
   bmr,
   dailyKcalForPace,
   estimateDate,
@@ -8,7 +9,9 @@ import {
   longRoadNote,
   maintenance,
   needsGoalDetails,
+  paceChoices,
   paceFor,
+  recompTip,
   suggestTargets,
   targetWeightProblem,
   weeksToTarget,
@@ -58,9 +61,18 @@ describe('pace', () => {
     expect(paceFor('muscle', 0.75)).toBe(0.25) // 0.75 is not an option for muscle
   })
 
-  it('has no pace for recomposition and maintenance', () => {
-    expect(paceFor('recomp', 0.5)).toBe(0)
-    expect(paceFor('maintain')).toBe(0)
+  it('offers 1 kg a week only for losing weight', () => {
+    expect(paceFor('lose', 1)).toBe(1)
+    expect(paceFor('recomp', 1)).toBe(0.5) // not an option: falls back to the recommended pace
+    expect(paceFor('muscle', 1)).toBe(0.25)
+    expect(dailyKcalForPace(1)).toBe(1100)
+  })
+
+  it('has paces for recomposition, and none for maintenance', () => {
+    expect(paceFor('recomp')).toBe(0.5)
+    expect(paceFor('recomp', 0.25)).toBe(0.25)
+    expect(paceFor('recomp', 0.75)).toBe(0.75)
+    expect(paceFor('maintain', 0.5)).toBe(0)
   })
 })
 
@@ -102,13 +114,23 @@ describe('suggestTargets: calories from the pace', () => {
     expect(suggestTargets({ ...man, goal: 'muscle' }).targets.kcal).toBe(3070) // lean
   })
 
-  it('uses a 10% deficit for recomposition, with the most protein', () => {
-    // 2797.75 * 0.9 = 2517.98 -> 2520. Protein 2.2 g/kg.
-    const s = suggestTargets({ ...man, goal: 'recomp' })
-    expect(s.targets.kcal).toBe(2520)
+  it('uses the chosen deficit for recomposition, with the most protein', () => {
+    // 2797.75 - 550 = 2247.75 -> 2250. Protein 2.2 g/kg.
+    const s = suggestTargets({ ...man, goal: 'recomp', pace: 0.5 })
+    expect(s.targets.kcal).toBe(2250)
     expect(s.targets.protein).toBe(176)
-    // 279.775 kcal a day is about a quarter of a kilo a week.
-    expect(s.weeklyChange).toBeCloseTo(-0.254, 2)
+    expect(s.weeklyChange).toBeCloseTo(-0.5)
+    expect(suggestTargets({ ...man, goal: 'recomp', pace: 0.25 }).targets.kcal).toBe(2520)
+    expect(suggestTargets({ ...man, goal: 'recomp', pace: 0.75 }).targets.kcal).toBe(1970)
+  })
+
+  it('goes to 1 kg a week when there is room for it', () => {
+    // A bigger, very active man: BMR 2105, maintenance 3631. 3631 - 1100 = 2531.
+    const big: Profile = { ...man, weightKg: 110, activity: 'very', goal: 'lose', pace: 1 }
+    const s = suggestTargets(big)
+    expect(s.targets.kcal).toBe(2530)
+    expect(s.weeklyChange).toBeCloseTo(-1)
+    expect(s.note).toBeUndefined()
   })
 
   it('makes the macros add up to the calories', () => {
@@ -131,10 +153,12 @@ describe('suggestTargets: calories from the pace', () => {
 
 describe('suggestTargets: safety floor', () => {
   it('never goes below the BMR', () => {
-    for (const pace of [0.25, 0.5, 0.75]) {
-      for (const profile of [man, woman]) {
-        const candidate: Profile = { ...profile, goal: 'lose', pace }
-        expect(suggestTargets(candidate).targets.kcal).toBeGreaterThanOrEqual(bmr(candidate))
+    for (const goal of ['lose', 'recomp'] as const) {
+      for (const pace of [0.25, 0.5, 0.75, 1]) {
+        for (const profile of [man, woman]) {
+          const candidate: Profile = { ...profile, goal, pace }
+          expect(suggestTargets(candidate).targets.kcal).toBeGreaterThanOrEqual(bmr(candidate))
+        }
       }
     }
   })
@@ -164,6 +188,76 @@ describe('suggestTargets: safety floor', () => {
     expect(s.note).toContain('Under 18')
     // A surplus is still allowed.
     expect(suggestTargets({ ...teen, goal: 'muscle' }).weeklyChange).toBeGreaterThan(0)
+  })
+})
+
+describe('paceChoices: comparing the options', () => {
+  const today = new Date(2026, 10, 16)
+
+  it('lists every pace with its calories and date', () => {
+    const choices = paceChoices({ ...man, goal: 'lose', targetWeightKg: 75 }, today)
+    expect(choices.map((c) => c.value)).toEqual([0.25, 0.5, 0.75, 1])
+    expect(choices.map((c) => c.kcal)).toEqual([2520, 2250, 1970, 1810])
+    expect(choices.map((c) => c.recommended)).toEqual([false, true, false, false])
+    // 5 kg: 20 weeks, 10 weeks, 6.67 weeks
+    expect(choices[0].date).toEqual(new Date(2027, 3, 5))
+    expect(choices[1].date).toEqual(new Date(2027, 0, 25))
+    expect(choices[2].date).toEqual(new Date(2027, 0, 2))
+  })
+
+  it('marks a pace below the BMR as not available, with the reason', () => {
+    // 2797.75 - 1100 = 1698, below his BMR of 1805.
+    const choices = paceChoices({ ...man, goal: 'lose', targetWeightKg: 75 }, today)
+    expect(choices.map((c) => c.available)).toEqual([true, true, true, false])
+    expect(choices[3].reason).toContain('less than the 1805 kcal your body uses at rest')
+    expect(choices[0].reason).toBeUndefined()
+  })
+
+  it('can leave no pace available for someone small and sedentary', () => {
+    // Her room between maintenance (1584) and BMR (1320) is 264 kcal: less than the slowest pace.
+    const choices = paceChoices({ ...woman, goal: 'lose', targetWeightKg: 55 }, today)
+    expect(choices.every((c) => !c.available)).toBe(true)
+    expect(bestPace(choices)).toBeUndefined()
+  })
+
+  it('offers two surplus paces for building muscle, always available', () => {
+    const choices = paceChoices({ ...woman, goal: 'muscle', targetWeightKg: 63 }, today)
+    expect(choices.map((c) => c.value)).toEqual([0.25, 0.5])
+    expect(choices.every((c) => c.available)).toBe(true)
+    // 1584.3 + 275 and + 550
+    expect(choices.map((c) => c.kcal)).toEqual([1860, 2130])
+    expect(choices[0].date).toEqual(new Date(2027, 1, 8)) // 3 kg at 0.25 = 12 weeks
+  })
+
+  it('offers three paces for recomposition', () => {
+    const choices = paceChoices({ ...man, goal: 'recomp' }, today)
+    expect(choices.map((c) => c.value)).toEqual([0.25, 0.5, 0.75])
+    expect(choices.map((c) => c.kcal)).toEqual([2520, 2250, 1970])
+    expect(choices.every((c) => c.date === null)).toBe(true) // no target, no date
+  })
+
+  it('has no deficit paces under 18, and nothing for maintenance', () => {
+    const teen = paceChoices({ ...man, age: 16, goal: 'lose', targetWeightKg: 75 }, today)
+    expect(teen.every((c) => !c.available && c.reason!.includes('under 18'))).toBe(true)
+    expect(paceChoices({ ...man, age: 16, goal: 'muscle' }, today).every((c) => c.available)).toBe(true)
+    expect(paceChoices(man, today)).toEqual([])
+  })
+
+  it('picks the pace to select', () => {
+    const choices = paceChoices({ ...man, goal: 'lose', targetWeightKg: 75 }, today)
+    expect(bestPace(choices, 0.75)).toBe(0.75) // the chosen one
+    expect(bestPace(choices)).toBe(0.5) // the recommended one
+    expect(bestPace(choices, 1)).toBe(0.5) // chosen but not available -> recommended
+    // When the recommended one is not available either: the fastest that is.
+    const tight: Profile = { ...woman, activity: 'light', goal: 'lose' } // room: 1815 - 1320 = 495 kcal
+    expect(bestPace(paceChoices(tight, today))).toBe(0.25)
+  })
+
+  it('suggests "Lose weight" for a recomposition target more than 5 kg down', () => {
+    expect(recompTip(80, 74)).toContain('Lose weight')
+    expect(recompTip(80, 75)).toBeNull() // exactly 5 kg is fine
+    expect(recompTip(80, 82)).toBeNull()
+    expect(recompTip(80, undefined)).toBeNull()
   })
 })
 
@@ -245,8 +339,9 @@ describe('date estimate', () => {
   })
 
   it('estimates recomposition only towards a lower target', () => {
-    expect(goalDate({ ...man, goal: 'recomp', targetWeightKg: 78 }, start)).not.toBeNull()
-    expect(goalDate({ ...man, goal: 'recomp', targetWeightKg: 82 }, start)).toBeNull()
+    // 2 kg at 0.5 kg a week = 4 weeks
+    expect(goalDate({ ...man, goal: 'recomp', pace: 0.5, targetWeightKg: 78 }, start)).toEqual(new Date(2026, 11, 14))
+    expect(goalDate({ ...man, goal: 'recomp', pace: 0.5, targetWeightKg: 82 }, start)).toBeNull()
   })
 
   it('remarks on targets more than a year away', () => {
@@ -264,12 +359,17 @@ describe('other checks', () => {
     expect(isUnderweight(75, 180)).toBe(false)
   })
 
-  it('knows which profiles still need a target weight and pace', () => {
+  it('knows which profiles still need a target weight or pace', () => {
     expect(needsGoalDetails({ ...man, goal: 'lose' })).toBe(true)
     expect(needsGoalDetails({ ...man, goal: 'lose', targetWeightKg: 75 })).toBe(true) // no pace yet
+    expect(needsGoalDetails({ ...man, goal: 'lose', pace: 0.5 })).toBe(true) // no target yet
     expect(needsGoalDetails({ ...man, goal: 'lose', targetWeightKg: 75, pace: 0.5 })).toBe(false)
+    expect(needsGoalDetails({ ...man, goal: 'lose', targetWeightKg: 75, pace: 1 })).toBe(false)
     expect(needsGoalDetails({ ...man, goal: 'muscle' })).toBe(true)
-    expect(needsGoalDetails({ ...man, goal: 'recomp' })).toBe(false) // optional
+    expect(needsGoalDetails({ ...man, goal: 'muscle', targetWeightKg: 84, pace: 0.75 })).toBe(true) // not an option for muscle
+    // Recomposition: a pace has to be chosen, the target is optional.
+    expect(needsGoalDetails({ ...man, goal: 'recomp' })).toBe(true)
+    expect(needsGoalDetails({ ...man, goal: 'recomp', pace: 0.5 })).toBe(false)
     expect(needsGoalDetails({ ...man, goal: 'maintain' })).toBe(false)
   })
 })

@@ -6,6 +6,7 @@ export interface Choice<T> {
   tag?: string // a small badge next to the label, e.g. "Recommended"
   description?: string
   detail?: string // an optional second line under the description
+  disabled?: boolean // shown, but cannot be chosen
 }
 
 interface Props<T> {
@@ -24,6 +25,7 @@ export default function Choices<T extends string | number>({ options, value, onC
           type="button"
           className={option.value === value ? 'row glass selected' : 'row glass'}
           onClick={() => onChange(option.value)}
+          disabled={option.disabled}
           aria-pressed={option.value === value}
         >
           <div className="row-main">

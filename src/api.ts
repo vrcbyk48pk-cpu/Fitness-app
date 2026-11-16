@@ -36,6 +36,10 @@ function toDraft(barcode: string, p: any): ProductDraft {
     protein: toNumber(n['proteins_100g']),
     carbs: toNumber(n['carbohydrates_100g']),
     fat: toNumber(n['fat_100g']),
+    // These three are optional: when Open Food Facts has no value they stay unknown.
+    fibre: toNumber(n['fiber_100g']),
+    sugar: toNumber(n['sugars_100g']),
+    salt: toNumber(n['salt_100g']),
   }
 }
 
@@ -68,6 +72,9 @@ export async function saveDraft(draft: ProductDraft): Promise<LookupResult> {
     protein: draft.protein!,
     carbs: draft.carbs!,
     fat: draft.fat!,
+    fibre: draft.fibre,
+    sugar: draft.sugar,
+    salt: draft.salt,
     source: 'openfoodfacts',
     favourite: false,
     lastUsed: Date.now(),

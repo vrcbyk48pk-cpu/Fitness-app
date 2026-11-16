@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { goalDate, longRoadNote, paceFor, suggestTargets, targetWeightProblem, weeksToTarget } from '../calculator'
+import {
+  bestPace,
+  goalDate,
+  longRoadNote,
+  paceChoices,
+  paceFor,
+  recompTip,
+  suggestTargets,
+  targetWeightProblem,
+  weeksToTarget,
+} from '../calculator'
 import { getTargets, saveProfile, saveTargets } from '../db'
 import type { Profile } from '../types'
 import { formatDate, parseNumber, todayKey } from '../utils'
@@ -15,7 +25,8 @@ interface Props {
   onClose: () => void
 }
 
-// A short sheet for just the target weight and the pace, without redoing the whole onboarding.
+// Target weight and pace on one sheet, without redoing the whole onboarding.
+// Saving updates the daily targets and the estimated date straight away.
 export default function GoalSheet({ profile, asking = false, onClose }: Props) {
   const { goal } = profile
   const [targetText, setTargetText] = useState(profile.targetWeightKg !== undefined ? String(profile.targetWeightKg) : '')
@@ -26,14 +37,17 @@ export default function GoalSheet({ profile, asking = false, onClose }: Props) {
   const problem = target !== null ? targetWeightProblem(goal, profile.weightKg, target) : null
   // Recomposition may have no target; the other goals need a valid one.
   const targetOk = goal === 'recomp' && targetText.trim() === '' ? true : target !== null && problem === null
-  const pace = paceFor(goal, chosenPace)
+
+  // Compare the paces for this person and target.
+  const draft: Profile = { ...profile, targetWeightKg: target ?? undefined }
+  const choices = paceChoices(draft, new Date())
+  const pace = bestPace(choices, chosenPace)
 
   // The profile as it will be saved.
-  const sameJourney = profile.targetWeightKg === (target ?? undefined)
+  const sameJourney = profile.targetWeightKg === draft.targetWeightKg
   const updated: Profile = {
-    ...profile,
-    targetWeightKg: target ?? undefined,
-    pace: pace > 0 ? pace : undefined,
+    ...draft,
+    pace: pace ?? paceFor(goal),
     // A new target starts a new journey: progress is measured from today's weight.
     startWeightKg: sameJourney ? (profile.startWeightKg ?? profile.weightKg) : profile.weightKg,
     startDate: sameJourney ? (profile.startDate ?? todayKey()) : todayKey(),
@@ -42,20 +56,20 @@ export default function GoalSheet({ profile, asking = false, onClose }: Props) {
   const reachDate = targetOk ? goalDate(updated, new Date()) : null
   const weeksAway = targetOk && target !== null ? weeksToTarget(profile.weightKg, target, suggestion.weeklyChange) : null
 
-  async function save(useNewTargets: boolean) {
+  async function save() {
     if (!targetOk) return
-    if (useNewTargets) await saveTargets(suggestion.targets)
+    await saveTargets(suggestion.targets)
     await saveProfile(updated)
     onClose()
   }
 
   return (
-    <Sheet title="Your target weight" onClose={onClose}>
+    <Sheet title="Target and pace" onClose={onClose}>
       <div className="stack">
         <p className="muted">
-          {asking && 'One thing was missing from your profile. '}
+          {asking && 'One thing is missing from your profile. '}
           You weigh {profile.weightKg} kg now.
-          {goal === 'recomp' && ' A target is optional for body recomposition.'}
+          {goal === 'recomp' && ' A target weight is optional for body recomposition.'}
         </p>
 
         <label className="field">
@@ -69,26 +83,19 @@ export default function GoalSheet({ profile, asking = false, onClose }: Props) {
           />
         </label>
         {problem && <p className="note">{problem}</p>}
-
-        {(goal === 'lose' || goal === 'muscle') && targetOk && target !== null && (
-          <div>
-            <div className="label">Pace</div>
-            <PacePicker
-              goal={goal}
-              value={pace}
-              onChange={setChosenPace}
-              currentKg={profile.weightKg}
-              targetKg={target}
-              // The whole profile is known here, so the dates can take the safety floor into account.
-              weeklyChangeFor={(option) => suggestTargets({ ...updated, pace: option }).weeklyChange}
-            />
-          </div>
+        {goal === 'recomp' && recompTip(profile.weightKg, target ?? undefined) && (
+          <p className="note">{recompTip(profile.weightKg, target ?? undefined)}</p>
         )}
 
         {targetOk && (
           <>
+            <div>
+              <div className="label">Pace</div>
+              <PacePicker choices={choices} value={pace} onChange={setChosenPace} targetKg={draft.targetWeightKg} />
+            </div>
+
             <p className="estimate">
-              {suggestion.targets.kcal} kcal per day
+              Daily target: {suggestion.targets.kcal} kcal
               {currentTargets && currentTargets.kcal !== suggestion.targets.kcal && ` (now ${Math.round(currentTargets.kcal)})`}
               {reachDate && ` · ${target} kg around ${formatDate(reachDate)}`}
             </p>
@@ -99,14 +106,11 @@ export default function GoalSheet({ profile, asking = false, onClose }: Props) {
       </div>
 
       <div className="sheet-actions">
-        <Button variant="primary" block disabled={!targetOk} onClick={() => save(true)}>
-          Save and use these targets
-        </Button>
-        <Button block disabled={!targetOk} onClick={() => save(false)}>
-          Save, keep my current targets
+        <Button variant="primary" block disabled={!targetOk} onClick={save}>
+          Save and update my targets
         </Button>
         {asking && (
-          <Button variant="danger" block onClick={onClose}>
+          <Button block onClick={onClose}>
             Not now
           </Button>
         )}

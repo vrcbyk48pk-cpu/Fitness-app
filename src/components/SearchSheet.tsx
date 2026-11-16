@@ -88,7 +88,7 @@ function ResultRow({ item, onClick }: { item: ProductDraft; onClick: () => void 
       )}
       <div className="row-main">
         <div className="row-title">{item.name}</div>
-        <div className="muted">{item.brand ?? 'No brand'}</div>
+        <div className="muted">{item.brand ?? ('source' in item && item.source === 'mealprep' ? 'Meal prep' : 'No brand')}</div>
       </div>
       <div className="result-kcal">
         {item.kcal === undefined ? (
