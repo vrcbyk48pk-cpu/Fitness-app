@@ -597,7 +597,7 @@ export const THEMES: Record<ThemeId, ThemeTokens> = {
     sizeBody: '22px',
     sizeInput: '22px',
     sizeHeadline: '12px',
-    sizeTitle: '14px',
+    sizeTitle: '13px',
     sizeLargeTitle: '19px',
     sizeDisplay: '24px',
     sizeNumber: '11px',

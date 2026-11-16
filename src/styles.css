@@ -963,6 +963,7 @@ b {
 .meal-title {
   font-size: var(--size-title);
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .meal-total {

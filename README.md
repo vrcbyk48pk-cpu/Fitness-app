@@ -15,6 +15,7 @@ No account, no server: everything is stored on the phone.
 - Meal prep: build a dish from ingredients, weigh it after cooking, log it by portion or by grams
 - Onboarding with a calorie and macro calculator (Mifflin-St Jeor), target weight and pace
 - Backups through the iOS share sheet, with a reminder, and import that can merge or replace
+- Six themes and two languages (English and Dutch), chosen on first launch and changeable in Settings
 - Barcode scanner with a flashlight button and a sharper camera picture
 - Daily targets, JSON backup export and import
 
@@ -30,8 +31,8 @@ npm run dev
 Open the address it prints (usually http://localhost:5173). The camera works on `localhost`,
 and in the scanner you can also type a barcode by hand, e.g. `3017620422003` (Nutella).
 
-`npm test` runs the unit tests: the calorie calculator, the nutrition label parser,
-the meal prep maths and the backup reading and merging.
+`npm test` runs the unit tests: the calorie calculator, the nutrition label parser, the meal
+prep maths, backup reading and merging, the translation files and the theme tokens.
 
 `npm run build` makes the production version in `dist/`, and `npm run preview` serves it
 (this is the version that includes the offline service worker).
@@ -75,8 +76,12 @@ scripts/copy-tesseract.mjs copies the OCR engine into public/ before dev and bui
 src/
   main.tsx                 starts React
   App.tsx                  which tab is open, which day and meal are selected, onboarding
-  theme.css                design tokens: every colour, radius, spacing step, font size
-  styles.css               component styles, built only from the tokens in theme.css
+  themes.ts                the six themes: a value for every design token, plus applyTheme()
+  theme.css                tokens that are the same in every theme (spacing, control sizes, motion)
+  styles.css               component styles, built only from tokens
+  i18n.ts                  t() for translated text, and number formatting per language
+  locales/en.json, nl.json every text in the app, in English and Dutch
+  appearance.ts            reading, applying and saving the chosen language and theme
   types.ts                 the shapes of the data: Product, Entry, SavedMeal, WeightEntry, Profile
   db.ts                    the local database (Dexie / IndexedDB), its versions and helper functions
   api.ts                   barcode lookup and name search (local cache first, then Open Food Facts)
@@ -95,6 +100,11 @@ src/
     Segmented.tsx          "pick one of these" control
     Sheet.tsx              glass panel that slides up from the bottom
     MealPicker.tsx  MacroTiles.tsx  MacroBar.tsx  CalorieRing.tsx  TabBar.tsx   small building blocks
+    AppearanceSetup.tsx    the first two screens: choose a language, then a theme
+    ThemeGallery.tsx       swipeable live previews, one per theme
+    TodayPreview.tsx       the sample Today screen shown inside each preview
+    SwipeRow.tsx           a row you can swipe left to reveal a button (used in Recents)
+    EnergyBar.tsx          the calories as a bar (some themes use it instead of the ring)
     TodayScreen.tsx        ring, macro bars, the four meals, day navigation
     EntrySheet.tsx         edit or delete a logged food
     AddScreen.tsx          meal picker, the product picker, saved meals, "log again" from yesterday
@@ -123,20 +133,42 @@ src/
     GoalProgress.tsx       start, now and target weight with a progress bar
 ```
 
-## The design system
+## Themes
 
-Everything visual is built from two files and four components:
+A theme is a set of design tokens in `src/themes.ts`: colours, fonts, font sizes, corner radii,
+borders, shadows, and the styles of buttons, bars, tiles and the tab bar. `applyTheme()` writes
+them to CSS variables (`cardBorder` becomes `--card-border`), and `src/styles.css` uses nothing
+but those variables. That is why every screen works in every theme without theme-specific CSS.
 
-- `src/theme.css` holds the tokens: colours for light and dark mode, corner radii, spacing
-  steps, font sizes and animation curves. To change a colour, change it there and nowhere else.
-- `src/styles.css` holds the component styles. It never uses a raw colour, only tokens.
-- `Button`, `Icon`, `Segmented` and `Sheet` are used on every screen. A new screen should be
-  built from these plus the shared classes `card`, `row`, `input`, `field`, `tiles` and `label`,
-  not from new one-off styles.
+Things that look structural are tokens too:
 
-Some colours come in two versions, for example `--accent` and `--accent-text`. The first is for
-shapes (the ring, bars, fills). The second is darker in light mode, so that small text in that
-colour stays readable.
+- `cardBorder`, `cardRule`, `cardShadow`: Kitchen journal sets the border to none and the rule to
+  a thin line, which turns every card into a ruled section.
+- `ringDisplay` / `energyDisplay`: Pixel arcade hides the ring and shows the energy bar.
+- `headlineDisplay`: Kitchen journal shows the sentence above the ring.
+- `tileRadius: 50%` and `tileAspect: 1`: Seventies diner turns the macro tiles into round plates.
+- `barMask`: Pixel arcade cuts every progress bar into blocks.
+- `headerStripes` and `stripesHeight`: the striped band of Seventies diner.
+
+To add a theme: add its id to `ThemeId` and `THEME_IDS`, add its tokens to `THEMES` (TypeScript
+and the tests tell you when one is missing), add its fonts to `FONT_LOADERS`, and add its name
+to both language files as `theme.<id>`. The contrast test checks its text colours.
+
+Fonts come from `@fontsource` packages, so they are part of the app and work offline. Each
+theme's fonts are loaded only when that theme is shown.
+
+Liquid glass follows the iPhone's dark mode (`GLASS_DARK`). The other themes look the same in
+light and dark mode.
+
+## Languages
+
+All text lives in `src/locales/en.json` and `src/locales/nl.json`. Code never contains text for
+the user; it calls `t('some.key')`, or `tn('some.key', count)` when the text differs between one
+and several (the files then have `some.key.one` and `some.key.other`). Numbers go through
+`num()` or `fmt()`, and dates through `formatDay()` / `formatDate()`, so they follow the language.
+
+The tests check that both files have the same keys and placeholders, that every key the code
+uses exists, and that no key is left unused.
 
 ## How the calorie suggestion works
 
