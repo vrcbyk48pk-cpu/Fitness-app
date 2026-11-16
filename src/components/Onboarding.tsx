@@ -1,11 +1,23 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ACTIVITY_OPTIONS, DISCLAIMER, GOAL_OPTIONS, suggestTargets } from '../calculator'
+import {
+  ACTIVITY_OPTIONS,
+  DISCLAIMER,
+  GOAL_OPTIONS,
+  goalDate,
+  isUnderweight,
+  longRoadNote,
+  paceFor,
+  suggestTargets,
+  targetWeightProblem,
+  weeksToTarget,
+} from '../calculator'
 import { db, saveProfile, saveTargets, saveWeight, skipOnboarding } from '../db'
 import type { Activity, Goal, Profile, Sex, Targets } from '../types'
-import { parseNumber, todayKey } from '../utils'
+import { formatDate, parseNumber, todayKey } from '../utils'
 import Button from './Button'
-import Icon from './Icon'
+import Choices from './Choices'
+import PacePicker from './PacePicker'
 
 interface Props {
   profile: Profile | null // the saved answers, when editing from Settings
@@ -13,18 +25,26 @@ interface Props {
   onDone: () => void
 }
 
-const STEPS = ['goal', 'sex', 'age', 'height', 'weight', 'activity', 'summary'] as const
+type Step = 'goal' | 'weight' | 'target' | 'pace' | 'sex' | 'age' | 'height' | 'activity' | 'summary'
 
-const SEX_OPTIONS: { value: Sex; label: string; description: string }[] = [
-  { value: 'female', label: 'Female', description: '' },
-  { value: 'male', label: 'Male', description: '' },
+// The questions, in order. Which goal questions are asked depends on the goal:
+// losing weight and building muscle need a target and a pace, recomposition
+// has an optional target, and staying healthy needs neither.
+function stepsFor(goal: Goal | undefined): Step[] {
+  const goalSteps: Step[] = goal === 'lose' || goal === 'muscle' ? ['target', 'pace'] : goal === 'recomp' ? ['target'] : []
+  return ['goal', 'weight', ...goalSteps, 'sex', 'age', 'height', 'activity', 'summary']
+}
+
+const SEX_OPTIONS: { value: Sex; label: string }[] = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
 ]
 
-// The three number questions: what to ask and which answers make sense.
+// The simple number questions: what to ask and which answers make sense.
 const NUMBER_STEPS = {
+  weight: { title: 'What do you weigh now?', unit: 'kg', min: 30, max: 300, decimal: true },
   age: { title: 'How old are you?', unit: 'years', min: 13, max: 100, decimal: false },
   height: { title: 'How tall are you?', unit: 'cm', min: 100, max: 250, decimal: false },
-  weight: { title: 'What do you weigh?', unit: 'kg', min: 30, max: 300, decimal: true },
 }
 
 // A short flow with one question per screen, ending in suggested targets.
@@ -33,18 +53,21 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
   const [goal, setGoal] = useState<Goal | undefined>(profile?.goal)
   const [sex, setSex] = useState<Sex | undefined>(profile?.sex)
   const [activity, setActivity] = useState<Activity | undefined>(profile?.activity)
+  const [chosenPace, setChosenPace] = useState<number | undefined>(profile?.pace)
   // The number answers are kept as text while typing.
   const [numbers, setNumbers] = useState({
+    weight: profile ? String(profile.weightKg) : '',
+    target: profile?.targetWeightKg !== undefined ? String(profile.targetWeightKg) : '',
     age: profile ? String(profile.age) : '',
     height: profile ? String(profile.heightCm) : '',
-    weight: profile ? String(profile.weightKg) : '',
   })
   // The four target fields on the summary screen (editable).
   const [targetTexts, setTargetTexts] = useState<Record<keyof Targets, string> | null>(null)
   // Are there targets saved already? Then we also offer to keep them.
   const hasTargets = useLiveQuery(() => db.settings.get('targets').then((row) => row !== undefined)) ?? false
 
-  const name = STEPS[step]
+  const steps = stepsFor(goal)
+  const name = steps[step]
 
   // A number answer, or null while it is empty or out of range.
   function numberAnswer(key: keyof typeof NUMBER_STEPS): number | null {
@@ -52,30 +75,55 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
     const { min, max } = NUMBER_STEPS[key]
     return value !== null && value >= min && value <= max ? value : null
   }
+  const weight = numberAnswer('weight')
   const age = numberAnswer('age')
   const height = numberAnswer('height')
-  const weight = numberAnswer('weight')
+
+  // ----- Target weight and pace -----
+  const asksTarget = steps.includes('target')
+  const target = asksTarget ? parseNumber(numbers.target) : null
+  const targetProblem = goal && weight !== null && target !== null ? targetWeightProblem(goal, weight, target) : null
+  // For recomposition the target may be left empty.
+  const targetOk = goal === 'recomp' && numbers.target.trim() === '' ? true : target !== null && targetProblem === null
+  const pace = goal ? paceFor(goal, chosenPace) : 0
+  // How long the target takes at the recommended pace, to warn when it is far away.
+  const weeksAway =
+    goal && weight !== null && target !== null && targetProblem === null
+      ? weeksToTarget(weight, target, goal === 'muscle' ? paceFor(goal) : -paceFor(goal))
+      : null
 
   // Complete once every question has a valid answer.
   const answers: Profile | null =
-    goal && sex && activity && age !== null && height !== null && weight !== null
-      ? { goal, sex, activity, age, heightCm: height, weightKg: weight }
+    goal && sex && activity && age !== null && height !== null && weight !== null && (!asksTarget || targetOk)
+      ? {
+          goal,
+          sex,
+          activity,
+          age,
+          heightCm: height,
+          weightKg: weight,
+          targetWeightKg: target ?? undefined,
+          pace: pace > 0 ? pace : undefined,
+        }
       : null
   const suggestion = answers ? suggestTargets(answers) : null
+  const reachDate = answers ? goalDate(answers, new Date()) : null
 
   const canContinue = {
     goal: goal !== undefined,
+    weight: weight !== null,
+    target: targetOk,
+    pace: true, // the recommended pace is selected until another is chosen
     sex: sex !== undefined,
     age: age !== null,
     height: height !== null,
-    weight: weight !== null,
     activity: activity !== undefined,
     summary: true,
   }[name]
 
   function next() {
     // Arriving at the summary: fill the editable fields with the suggestion.
-    if (STEPS[step + 1] === 'summary' && suggestion) {
+    if (steps[step + 1] === 'summary' && suggestion) {
       const t = suggestion.targets
       setTargetTexts({ kcal: String(t.kcal), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) })
     }
@@ -102,7 +150,13 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
     // A new weight also goes into the weight log, so the two never disagree.
     if (answers.weightKg !== profile?.weightKg) await saveWeight(todayKey(), answers.weightKg)
     if (newTargets) await saveTargets(newTargets)
-    await saveProfile(answers)
+    // A new goal or target starts a new journey: progress is measured from today's weight.
+    const sameJourney = profile?.goal === answers.goal && profile.targetWeightKg === answers.targetWeightKg
+    await saveProfile({
+      ...answers,
+      startWeightKg: sameJourney ? (profile.startWeightKg ?? answers.weightKg) : answers.weightKg,
+      startDate: sameJourney ? (profile.startDate ?? todayKey()) : todayKey(),
+    })
     onDone()
   }
 
@@ -114,8 +168,8 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
         ) : (
           <span style={{ width: 44 }} />
         )}
-        <div className="steps" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={step + 1}>
-          {STEPS.map((s, i) => (
+        <div className="steps" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={step + 1}>
+          {steps.map((s, i) => (
             <i key={s} className={i <= step ? 'done' : ''} />
           ))}
         </div>
@@ -134,15 +188,7 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
           </>
         )}
 
-        {name === 'sex' && (
-          <>
-            <h1 className="page-title">What is your sex?</h1>
-            <p className="muted">The formula for calories uses a different number for men and women.</p>
-            <Choices options={SEX_OPTIONS} value={sex} onChange={setSex} />
-          </>
-        )}
-
-        {(name === 'age' || name === 'height' || name === 'weight') && (
+        {(name === 'weight' || name === 'age' || name === 'height') && (
           <>
             <h1 className="page-title">{NUMBER_STEPS[name].title}</h1>
             <label className="big-input glass">
@@ -163,6 +209,49 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
           </>
         )}
 
+        {name === 'target' && (
+          <>
+            <h1 className="page-title">What weight are you aiming for?</h1>
+            <p className="muted">
+              {goal === 'recomp'
+                ? `You weigh ${weight} kg now. A target is optional here: leave it empty if the scale is not your goal.`
+                : `You weigh ${weight} kg now.`}
+            </p>
+            <label className="big-input glass">
+              <input
+                inputMode="decimal"
+                autoFocus
+                value={numbers.target}
+                onChange={(e) => setNumbers({ ...numbers, target: e.target.value })}
+                aria-label="Target weight in kg"
+              />
+              <span>kg</span>
+            </label>
+            {targetProblem && <p className="note">{targetProblem}</p>}
+            {longRoadNote(weeksAway) && <p className="note">{longRoadNote(weeksAway)}</p>}
+          </>
+        )}
+
+        {name === 'pace' && (goal === 'lose' || goal === 'muscle') && weight !== null && target !== null && (
+          <>
+            <h1 className="page-title">How fast?</h1>
+            <p className="muted">
+              {goal === 'lose'
+                ? 'A faster pace means eating less each day. Slower is easier to keep up.'
+                : 'A slower pace adds less fat along with the muscle.'}
+            </p>
+            <PacePicker goal={goal} value={pace} onChange={setChosenPace} currentKg={weight} targetKg={target} />
+          </>
+        )}
+
+        {name === 'sex' && (
+          <>
+            <h1 className="page-title">What is your sex?</h1>
+            <p className="muted">The formula for calories uses a different number for men and women.</p>
+            <Choices options={SEX_OPTIONS} value={sex} onChange={setSex} />
+          </>
+        )}
+
         {name === 'activity' && (
           <>
             <h1 className="page-title">How active are you?</h1>
@@ -171,7 +260,7 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
           </>
         )}
 
-        {name === 'summary' && suggestion && targetTexts && (
+        {name === 'summary' && answers && suggestion && targetTexts && (
           <>
             <h1 className="page-title">Your daily targets</h1>
             <section className="card glass">
@@ -196,6 +285,22 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
                 ))}
               </div>
               <p className="muted">Tap a number to change it.</p>
+
+              {reachDate && (
+                <p className="estimate">
+                  Estimated to reach {answers.targetWeightKg} kg around {formatDate(reachDate)}
+                </p>
+              )}
+              {suggestion.note && <p className="note">{suggestion.note}</p>}
+              {answers.targetWeightKg !== undefined &&
+                answers.targetWeightKg < answers.weightKg &&
+                isUnderweight(answers.targetWeightKg, answers.heightCm) && (
+                  <p className="note">
+                    A target of {answers.targetWeightKg} kg is below the healthy range for your height. Consider a
+                    higher target, and talk to a doctor first.
+                  </p>
+                )}
+
               <p className="note">{suggestion.explanation}</p>
               <p className="muted">{DISCLAIMER}</p>
             </section>
@@ -221,36 +326,6 @@ export default function Onboarding({ profile, firstRun, onDone }: Props) {
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-interface ChoicesProps<T extends string> {
-  options: { value: T; label: string; description: string }[]
-  value: T | undefined
-  onChange: (value: T) => void
-}
-
-// A list of glass rows; the selected one gets an accent outline and a check mark.
-function Choices<T extends string>({ options, value, onChange }: ChoicesProps<T>) {
-  return (
-    <div>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          className={option.value === value ? 'row glass selected' : 'row glass'}
-          onClick={() => onChange(option.value)}
-          aria-pressed={option.value === value}
-        >
-          <div className="row-main">
-            <div className="row-title">{option.label}</div>
-            {option.description && <div className="muted">{option.description}</div>}
-          </div>
-          <span className="row-check">
-            <Icon name="check" size={16} />
-          </span>
-        </button>
-      ))}
     </div>
   )
 }

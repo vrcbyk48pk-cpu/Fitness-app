@@ -6,6 +6,7 @@ import { getProfile, getTargets, saveTargets } from '../db'
 import type { Targets } from '../types'
 import { parseNumber } from '../utils'
 import Button from './Button'
+import GoalSheet from './GoalSheet'
 
 // The four target fields, in display order.
 const FIELDS: { key: keyof Targets; label: string; unit: string; color: string }[] = [
@@ -25,6 +26,7 @@ export default function SettingsScreen({ onEditProfile }: Props) {
   const [texts, setTexts] = useState<Record<keyof Targets, string> | null>(null)
   const [message, setMessage] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
+  const [editingGoal, setEditingGoal] = useState(false) // the target weight sheet
 
   async function loadTargets() {
     const t = await getTargets()
@@ -88,6 +90,18 @@ export default function SettingsScreen({ onEditProfile }: Props) {
             <b>{profile.heightCm} cm</b>
             <span className="muted">Weight</span>
             <b>{profile.weightKg} kg</b>
+            {profile.goal !== 'maintain' && (
+              <>
+                <span className="muted">Target weight</span>
+                <b>{profile.targetWeightKg !== undefined ? `${profile.targetWeightKg} kg` : 'Not set'}</b>
+              </>
+            )}
+            {profile.pace !== undefined && (
+              <>
+                <span className="muted">Pace</span>
+                <b>{profile.pace} kg per week</b>
+              </>
+            )}
             <span className="muted">Activity</span>
             <b>{ACTIVITY_OPTIONS.find((o) => o.value === profile.activity)?.label}</b>
           </div>
@@ -97,6 +111,11 @@ export default function SettingsScreen({ onEditProfile }: Props) {
         <Button variant="primary" block icon="user" onClick={onEditProfile}>
           {profile ? 'Edit profile' : 'Set up my profile'}
         </Button>
+        {profile && profile.goal !== 'maintain' && (
+          <Button block onClick={() => setEditingGoal(true)}>
+            Change target weight
+          </Button>
+        )}
       </section>
 
       <h2 className="section-title">Daily targets</h2>
@@ -146,6 +165,8 @@ export default function SettingsScreen({ onEditProfile }: Props) {
         />
         {message && <p className="note">{message}</p>}
       </section>
+
+      {editingGoal && profile && <GoalSheet profile={profile} onClose={() => setEditingGoal(false)} />}
     </>
   )
 }

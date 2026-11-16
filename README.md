@@ -105,6 +105,10 @@ src/
     WeightCard.tsx         weight entry + line chart; offers new targets when your weight changes
     SettingsScreen.tsx     profile, daily targets and backup
     Onboarding.tsx         first-launch questions and the suggested targets
+    Choices.tsx            a list of options to pick one from
+    PacePicker.tsx         the pace options, each with its daily calories and estimated date
+    GoalSheet.tsx          change just the target weight and pace
+    GoalProgress.tsx       start, now and target weight with a progress bar
 ```
 
 ## The design system
@@ -128,11 +132,15 @@ colour stays readable.
 
 1. BMR (calories at rest) with the Mifflin-St Jeor formula.
 2. Times an activity factor (1.2 to 1.9) gives maintenance calories.
-3. Adjust for the goal: lose weight -20%, build muscle +10%, recomposition -10%, maintain 0%.
+3. Adjust for the goal. Losing weight and building muscle use the pace you chose: one kg of
+   body fat is about 7700 kcal, so 0.5 kg a week is 550 kcal a day less (or more). Body
+   recomposition uses a fixed 10% deficit; staying healthy uses maintenance.
 4. Protein from body weight (1.6 to 2.2 g per kg), fat 25-30% of calories, carbs the rest.
 
-Two safety rules: a deficit never goes below 1200 kcal (women) or 1500 kcal (men), and no
-deficit is applied under 18. The numbers are estimates, not medical advice.
+Safety rules: calories never go below the BMR (the pace is slowed down instead, and the app
+says so), and no deficit is applied under 18. The estimated date is simply the kilograms to go
+divided by the weekly change, counted from your latest weigh-in. All of it is an estimate,
+not medical advice.
 
 How data flows: screens read from the database with `useLiveQuery`, which re-renders them
 automatically whenever the data changes. To change something, a component calls a function

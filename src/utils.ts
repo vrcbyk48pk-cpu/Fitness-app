@@ -112,3 +112,8 @@ export function daysInMonth(key: string): number {
 export function dayList(from: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => shiftDay(from, i))
 }
+
+// e.g. "25 January 2027"
+export function formatDate(date: Date): string {
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+}
