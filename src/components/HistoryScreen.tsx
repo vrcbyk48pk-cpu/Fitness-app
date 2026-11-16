@@ -5,6 +5,7 @@ import type { Macros } from '../types'
 import { dayList, daysInMonth, fmt, keyToDate, shiftDay, startOfMonth, startOfWeek, sumMacros, todayKey } from '../utils'
 import BarChart from './BarChart'
 import Button from './Button'
+import GoalProgress from './GoalProgress'
 import MacroTiles from './MacroTiles'
 import Segmented from './Segmented'
 import WeightCard from './WeightCard'
@@ -105,6 +106,7 @@ export default function HistoryScreen({ onOpenDay }: Props) {
         </div>
       </section>
 
+      <GoalProgress />
       <WeightCard />
     </>
   )

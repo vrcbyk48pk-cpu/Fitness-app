@@ -5,8 +5,10 @@ import TodayScreen from './components/TodayScreen'
 import AddScreen from './components/AddScreen'
 import HistoryScreen from './components/HistoryScreen'
 import SettingsScreen from './components/SettingsScreen'
+import GoalSheet from './components/GoalSheet'
 import Onboarding from './components/Onboarding'
-import { getProfile, needsOnboarding } from './db'
+import { needsGoalDetails } from './calculator'
+import { dismissGoalPrompt, getProfile, goalPromptDismissed, needsOnboarding } from './db'
 import type { Meal } from './types'
 import { mealForTime, todayKey } from './utils'
 
@@ -24,6 +26,8 @@ export default function App() {
   const firstRun = useLiveQuery(needsOnboarding)
   const profile = useLiveQuery(getProfile)
   const [editingProfile, setEditingProfile] = useState(false)
+  // Profiles made before the app asked for a target weight and pace get one short question.
+  const goalAsked = useLiveQuery(goalPromptDismissed)
 
   function showToast(message: string) {
     setToast(message)
@@ -53,6 +57,7 @@ export default function App() {
 
   const loading = firstRun === undefined || profile === undefined
   const showOnboarding = firstRun || editingProfile
+  const askGoal = !loading && !showOnboarding && goalAsked === false && profile !== null && needsGoalDetails(profile)
 
   return (
     <>
@@ -104,6 +109,9 @@ export default function App() {
           </main>
 
           <TabBar tab={tab} setTab={openTab} />
+
+          {/* Closing it in any way counts as "Not now": it is not shown again by itself. */}
+          {askGoal && <GoalSheet profile={profile} asking onClose={dismissGoalPrompt} />}
         </>
       )}
 

@@ -434,6 +434,25 @@ button:disabled {
   margin-right: 4px;
 }
 
+/* A small badge next to a row title, e.g. "Recommended" */
+.tag {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent-text);
+  font-size: var(--font-caption);
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+/* A highlighted one-line result, e.g. the estimated date */
+.estimate {
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
 /* A selectable row (onboarding choices) */
 .row.selected {
   border-color: var(--accent);

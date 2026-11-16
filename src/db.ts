@@ -6,6 +6,7 @@ import { macrosFor, mealForTime, shiftDay, todayKey } from './utils'
 //   "targets"           -> Targets (daily goals)
 //   "profile"           -> Profile (answers from the onboarding)
 //   "onboardingSkipped" -> true
+//   "goalPromptDismissed" -> true (tapped "Not now" on the target weight question)
 interface Setting {
   key: string
   value: unknown
@@ -84,6 +85,14 @@ export async function skipOnboarding(): Promise<void> {
 export async function needsOnboarding(): Promise<boolean> {
   const rows = await db.settings.bulkGet(['profile', 'onboardingSkipped'])
   return rows.every((row) => row === undefined)
+}
+
+export async function goalPromptDismissed(): Promise<boolean> {
+  return (await db.settings.get('goalPromptDismissed')) !== undefined
+}
+
+export async function dismissGoalPrompt(): Promise<void> {
+  await db.settings.put({ key: 'goalPromptDismissed', value: true })
 }
 
 // ---------- Products ----------

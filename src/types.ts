@@ -74,6 +74,13 @@ export interface Profile {
   sex: Sex
   age: number // years
   heightCm: number
-  weightKg: number
+  weightKg: number // the current weight
   activity: Activity
+
+  // Goal details. Optional: "stay healthy" has none, and profiles made
+  // before these questions existed don't have them yet.
+  targetWeightKg?: number
+  pace?: number // kg per week
+  startWeightKg?: number // the weight when this target was set, for the progress bar
+  startDate?: string // "YYYY-MM-DD"
 }
